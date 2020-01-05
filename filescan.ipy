@@ -1,0 +1,53 @@
+import datetime
+import glob
+import hashlib
+import os
+import time
+
+DEBUG = False # Think _hard_ before enabling DEBUG
+def debug(*args, **kwargs):
+    if DEBUG:
+        print(*args, **kwargs)
+
+base_dirs = ["DataScienceinPython/"] # Alter to taste
+%sql UPDATE location SET seen = FALSE
+for base_dir in base_dirs:
+    file_count = known_files = updated_files = unchanged_files = new_files = deleted_files = 0
+    for rec in os.walk(base_dir):
+        dir_path, dirnames, filenames = rec
+        for file_path in filenames:
+            file_count += 1
+            thisfile = os.path.join(dir_path, file_path)
+            stat = os.stat(thisfile)
+            disk_modified = datetime.datetime.fromtimestamp(stat.st_mtime, None)
+            rec = %sql SELECT id, modified FROM location \
+                        WHERE dirpath=:dir_path AND filename=:file_path;
+            if rec: # Known file
+                id, modified = rec[0]
+                known_files += 1
+                if disk_modified != modified: # Changed since last scan
+                    updated_files += 1
+                    hash = hashlib.sha256(open(thisfile, "rb").read()).hexdigest()
+                    %sql UPDATE location \
+                            SET modified=:disk_modified, checksum=:hash, seen=TRUE \
+                            WHERE id=:id
+                    debug("*UPDATED*", thisfile)
+                else:
+                    debug("*REMAINS*", thisfile)
+                    unchanged_files += 1
+                    %sql UPDATE location SET seen=TRUE WHERE id=:id
+            else:   # New file
+                new_files += 1
+                hash = hashlib.sha256(open(thisfile, "rb").read()).hexdigest()
+                %sql INSERT INTO location (filename, dirpath, modified, checksum, seen) \
+                                VALUES (:file_path, :dir_path, :disk_modified, :hash, TRUE)
+                debug("*CREATED*", thisfile)
+ct = %sql select count(*) from location
+debug("Row count:", ct[0][0])
+deleted = %sql SELECT dirpath, filename FROM location WHERE NOT seen
+deleted_files = len(deleted)
+for dirname, filepath in deleted:
+    debug("*DELETED*", os.path.join(dirname, filepath))
+%sql DELETE FROM location WHERE NOT seen
+print("Known:", known_files, "New:", new_files, "Deleted:", deleted_files,
+      "Updated:", updated_files, "Unchanged", unchanged_files, "total:", file_count)
