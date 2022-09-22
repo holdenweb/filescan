@@ -1,9 +1,9 @@
 import sqlite3
 
-class DoesNotExist(Exception):
-    pass
-
 class Connection:
+
+    class DoesNotExist(Exception):
+        pass
 
     def __init__(self, dbname='test', create=False):
         self.conn = sqlite3.connect('/Users/sholden/Desktop/{dbname}.sqlite')
@@ -27,7 +27,7 @@ class Connection:
         if result:
             return result
         else:
-            raise DoesNotExist()
+            raise Connection.DoesNotExist()
         
     
     def update_modified_hash_seen(self, id, modified, hash, seen=True):

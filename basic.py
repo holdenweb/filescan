@@ -1,18 +1,18 @@
 import datetime
 import glob
 import hashlib
+import importlib
 import os
 import time
 
-import sqlite_store as store
-
-DEBUG = True # Think _hard_ before enabling DEBUG
+DEBUG = False # Think _hard_ before enabling DEBUG
 
 def debug(*args, **kwargs):
     if DEBUG:
         print(*args, **kwargs)
 
-
+storage = 'sqlite'
+store = importlib.import_module(f"{storage}_store")
 base_dirs = ['/Users/sholden/Projects/Python/filescan']
 conn = store.Connection('test')
 conn.clear_seen_bits()
@@ -39,7 +39,7 @@ for base_dir in base_dirs:
                     debug("*REMAINS*", thisfile)
                     unchanged_files += 1
                     conn.update_seen(id)
-            except store.DoesNotExist:   # New file
+            except conn.DoesNotExist:   # New file
                 new_files += 1
                 try:
                     hash = hashlib.sha256(open(thisfile, "rb").read()).hexdigest()

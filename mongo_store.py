@@ -12,6 +12,8 @@ class Document(mongoengine.Document):
 
 class Connection:
 
+    DoesNotExist = mongoengine.DoesNotExist
+
     def __init__(self, dbname='test', document_class=Document, create=False):
         self.conn = mongoengine.connect(dbname)
         self.document_class = document_class
