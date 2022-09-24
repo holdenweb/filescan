@@ -6,7 +6,7 @@ class Connection:
         pass
 
     def __init__(self, dbname='test', create=False):
-        self.conn = sqlite3.connect('/Users/sholden/Desktop/{dbname}.sqlite')
+        self.conn = sqlite3.connect(f'/Users/sholden/Desktop/{dbname}.sqlite')
         if create:
             self.conn.execute("DROP TABLE IF EXISTS location")
             self.conn.execute("CREATE TABLE location (id INTEGER PRIMARY KEY, filename VARCHAR, dirpath varchar, modified number, checksum integer, seen boolean)")
