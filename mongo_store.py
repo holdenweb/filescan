@@ -1,20 +1,25 @@
 import mongoengine
 
 
-class Document(mongoengine.Document):
+class FileRecord(mongoengine.Document):
     filename = mongoengine.StringField()
     dirpath = mongoengine.StringField()
     modified = mongoengine.FloatField()
-    checksum = mongoengine.StringField()
+    hash = mongoengine.StringField()
     seen = mongoengine.BooleanField()
     length = mongoengine.IntField()
 
+class TokenPos(mongoengine.Document):
+    hash = mongoengine.StringField()
+    name = mongoengine.StringField()
+    line = mongoengine.IntField()
+    pos = mongoengine.IntField()
 
 class Connection:
 
     DoesNotExist = mongoengine.DoesNotExist
 
-    def __init__(self, dbname='test', document_class=Document, create=False):
+    def __init__(self, dbname='test', document_class=FileRecord, create=False):
         self.conn = mongoengine.connect(dbname)
         self.document_class = document_class
         if create:
@@ -29,16 +34,22 @@ class Connection:
     def clear_seen_bits(self):
         self.document_class.objects.all().update(seen=False)
 
-    def id_mod_seen(self, dir_path, file_path):
-        fieldnames = ["id", "modified", "seen"]
+    def hash_exists(self, hash):
+        return len(FileRecord.objects(hash=hash)[:1]) == 1
+
+    def save_reference(self, hash, name, line, pos):
+        TokenPos(hash=hash, name=name, line=line, pos=pos).save()
+
+    def id_mod_hash_seen(self, dir_path, file_path):
+        fieldnames = ["id", "modified", "hash", "seen"]
         result = self.document_class.objects.only(*fieldnames).get(
             dirpath=dir_path, filename=file_path
         )
         return tuple(getattr(result, fld) for fld in fieldnames)
 
-    def update_modified_hash_seen(self, id, modified, checksum, seen=True):
+    def update_modified_hash_seen(self, id, modified, hash, seen=True):
         return self.document_class.objects(pk=id).update(
-            modified=modified, checksum=checksum, seen=seen
+            modified=modified, hash=hash, seen=seen
         )
 
     def update_seen(self, id):
@@ -49,7 +60,7 @@ class Connection:
             filename=file_path,
             dirpath=dirpath,
             modified=modified,
-            checksum=hash,
+            hash=hash,
             seen=True,
         )
         rec.save()
