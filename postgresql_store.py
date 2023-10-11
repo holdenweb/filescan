@@ -12,7 +12,7 @@ class Connection:
             self.curs.execute("DROP TABLE IF EXISTS tokenpos")
             self.curs.execute("CREATE TABLE tokenpos (id SERIAL PRIMARY KEY, hash CHAR(64), name VARCHAR, line INTEGER, pos INTEGER)")
             self.curs.execute("DROP TABLE IF EXISTS location")
-            self.curs.execute("CREATE TABLE location (id SERIAL PRIMARY KEY, filename VARCHAR, dirpath VARCHAR, modified INTEGER, checksum CHAR(64), seen BOOLEAN)")
+            self.curs.execute("CREATE TABLE location (id SERIAL PRIMARY KEY, filename VARCHAR, dirpath VARCHAR, modified DOUBLE PRECISION, checksum CHAR(64), seen BOOLEAN)")
             self.curs.execute("ALTER TABLE location ADD COLUMN length INTEGER")
 
     def commit(self):
