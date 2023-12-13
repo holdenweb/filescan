@@ -7,6 +7,10 @@ from load_tokens import scan_tokens
 
 DEBUG = False # Think _hard_ before enabling DEBUG
 
+def debug(*args, **kwargs):
+    if DEBUG:
+        print(*args, **kwargs)
+
 def main(args=sys.argv[1:], DEBUG=False, storage='postgresql', database='filescan', create=False):
 
     if create:
@@ -20,15 +24,13 @@ Database:   {database}
 Do you wish to proceed (yes/no): """)
         if answer != "yes":
             sys.exit("Aborted: user opted not to create a new database.")
+
+
     store_name = f"{storage}_store"
     print("Using", store_name)
     store = importlib.import_module(store_name)
     conn = store.Connection(database, create=create)
     conn.clear_seen_bits()
-
-    def debug(*args, **kwargs):
-        if DEBUG:
-            print(*args, **kwargs)
 
     file_count = known_files = updated_files = unchanged_files = new_files = deleted_files = 0
     for base_dir in args:
@@ -81,6 +83,10 @@ Unchanged: {unchanged_files}
 Total:     {file_count}""")
 
 if __name__ == '__main__':
+
+     if len(sys.argv) == 1:
+        sys.exit("Nothing to do!")
+
     args = {}
     for name in "storage", "database", "create":
         args[name] = input(f"{name.capitalize()}: ")
