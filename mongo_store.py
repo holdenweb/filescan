@@ -31,8 +31,8 @@ class Connection:
     def commit(self):
         pass
 
-    def clear_seen_bits(self):
-        self.document_class.objects.all().update(seen=False)
+    def clear_seen_bits(self, prefix):
+        self.document_class.objects(dirpath__startswith=prefix).update(seen=False)
 
     def hash_exists(self, hash):
         return len(FileRecord.objects(hash=hash)[:1]) == 1

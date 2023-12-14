@@ -26,8 +26,8 @@ class Connection:
         self.curs.execute("INSERT INTO tokenpos (hash, name, line, pos) VALUES(%s, %s, %s, %s)",
                           (hash, name, line, pos))
 
-    def clear_seen_bits(self):
-        self.curs.execute('UPDATE LOCATION SET seen=FALSE')
+    def clear_seen_bits(self, prefix):
+        self.curs.execute("UPDATE location SET seen=FALSE WHERE dirpath LIKE (%s || '%%')", (prefix, ))
 
     def id_mod_hash_seen(self, dir_path, file_path):
         self.curs.execute('''
