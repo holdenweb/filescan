@@ -1,4 +1,5 @@
 import psycopg2
+from datetime import datetime
 
 class Connection:
 
@@ -6,14 +7,17 @@ class Connection:
         pass
 
     def __init__(self, dbname='test', create=False):
-        self.conn = psycopg2.connect("dbname=filescan user=sholden")
+        self.conn = psycopg2.connect(f"dbname={dbname}")
         self.curs = self.conn.cursor()
         if create:
-            self.curs.execute("DROP TABLE IF EXISTS tokenpos")
-            self.curs.execute("CREATE TABLE tokenpos (id SERIAL PRIMARY KEY, hash CHAR(64), name VARCHAR, line INTEGER, pos INTEGER)")
-            self.curs.execute("DROP TABLE IF EXISTS location")
-            self.curs.execute("CREATE TABLE location (id SERIAL PRIMARY KEY, filename VARCHAR, dirpath VARCHAR, modified DOUBLE PRECISION, checksum CHAR(64), seen BOOLEAN)")
-            self.curs.execute("ALTER TABLE location ADD COLUMN length INTEGER")
+            self.curs.execute("""DROP TABLE IF EXISTS tokenpos""")
+            self.curs.execute("""CREATE TABLE tokenpos (id SERIAL PRIMARY KEY, hash CHAR(64), name VARCHAR, line INTEGER, pos INTEGER)""")
+            self.curs.execute("""DROP TABLE IF EXISTS location""")
+            self.curs.execute("""CREATE TABLE location (id SERIAL PRIMARY KEY, filename VARCHAR, dirpath VARCHAR, modified DOUBLE PRECISION, checksum CHAR(64), seen BOOLEAN)""")
+            self.curs.execute("""ALTER TABLE location ADD COLUMN length INTEGER""")
+            self.curs.execute("""DROP TABLE IF EXISTS runlog""")
+            self.curs.execute("""CREATE TABLE runlog (id SERIAL PRIMARY KEY, when_run TIMESTAMP, files INTEGER, known INTEGER, updated INTEGER, unchanged INTEGER, new_files INTEGER, deleted INTEGER)""")
+            self.curs.execute("""CREATE TABLE rundir (id SERIAL PRIMARY KEY, dirpath VARCHAR, runlog_id INTEGER FOREIGN KEY REFERENCES runlog""")
 
     def commit(self):
         return self.conn.commit()
@@ -73,3 +77,8 @@ class Connection:
 
     def delete_not_seen(self):
         self.curs.execute('''DELETE from location WHERE NOT seen''')
+
+    def record_run(self, when: datetime, files: int, known: int, updated: int, unchanged:int, new:int, deleted:int):
+        self.curs.execute("""INSERT INTO runlog (when_run, files, known, updated, unchanged, new_files, deleted) VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                          (when, files, known, updated, unchanged, new, deleted))
+        self.commit()

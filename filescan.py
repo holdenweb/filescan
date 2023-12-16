@@ -3,6 +3,8 @@ import importlib
 import os
 import sys
 
+from datetime import datetime
+
 from load_tokens import scan_tokens
 
 DEBUG = False # Think _hard_ before enabling DEBUG
@@ -27,11 +29,12 @@ Do you wish to proceed (yes/no): """)
 
 
     store_name = f"{storage}_store"
-    print("Using", store_name)
+    print("Using", store_name, "with DB", database)
     store = importlib.import_module(store_name)
     conn = store.Connection(database, create=create)
 
     file_count = known_files = updated_files = unchanged_files = new_files = deleted_files = 0
+    started = datetime.now()
     for base_dir in args:
 
         if not base_dir.endswith("/"):
@@ -80,13 +83,15 @@ Do you wish to proceed (yes/no): """)
     conn.commit()
 
     print(f"""\
-Known:     {known_files}
-New:       {new_files}
-Deleted:   {deleted_files}
-Updated:   {updated_files}
-Unchanged: {unchanged_files}
+Known:      {known_files}
+Updated:    {updated_files}
+Unchanged:  {unchanged_files}
+New:        {new_files}
+Deleted:    {deleted_files}
 
-Total:     {file_count}""")
+Total seen: {file_count}""")
+
+    conn.record_run(started, file_count, known_files, updated_files, unchanged_files, new_files, deleted_files)
 
 if __name__ == '__main__':
 
