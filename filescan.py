@@ -29,20 +29,18 @@ Do you wish to proceed (yes/no): """)
 
 
     store_name = f"{storage}_store"
-    print("Using", store_name, "with DB", database)
     store = importlib.import_module(store_name)
     conn = store.Connection(database, create=create)
 
-    file_count = known_files = updated_files = unchanged_files = new_files = deleted_files = 0
-    started = datetime.now()
     for base_dir in args:
-
+        started = datetime.now()
+        file_count = known_files = updated_files = unchanged_files = new_files = deleted_files = 0
         if not base_dir.endswith("/"):
             base_dir += "/"
         conn.clear_seen_bits(base_dir)
 
         for dir_path, dirnames, filenames in os.walk(base_dir):
-            for ignore_dir in ["__pycache__", "site-packages", ".git"]:
+            for ignore_dir in ["__pycache__", "site-packages", ".git", ".ipynb_checkpoints"]:
                 if ignore_dir in dirnames:
                     dirnames.remove(ignore_dir)
             if not dir_path.endswith("/"):
@@ -56,12 +54,11 @@ Do you wish to proceed (yes/no): """)
                     id, modified, hash, seen = conn.id_mod_hash_seen(dir_path, filename)
                     known_files += 1
                     if disk_modified != modified: # Changed since last scan
-                        #  print(f"{dir_path}/{file_path} is now {disk_modified} was {modified}")
                         updated_files += 1
                         hash = hashlib.sha256(open(current_file_path, "rb").read()).hexdigest()
                         conn.update_modified_hash_seen(id, disk_modified, hash)
                         scan_tokens(conn, current_file_path, hash)
-                        # debug("*UPDATED*", thisfile)
+                        debug("*UPDATED*", current_file_path)
                     else:
                         unchanged_files += 1
                         conn.update_seen(id)
@@ -75,14 +72,14 @@ Do you wish to proceed (yes/no): """)
                     conn.db_insert_location(filename, dir_path, disk_modified, hash)
                     debug("*CREATED*", current_file_path)
                 conn.commit()
-    ct = conn.all_file_count()
-    deleted_files = conn.count_not_seen()
-    for dirname, filepath in conn.dir_files_not_seen():
-        debug("*DELETED*", os.path.join(dirname, filepath))
-    conn.delete_not_seen()
-    conn.commit()
+            ct = conn.all_file_count()
+            deleted_files = conn.count_not_seen()
+            for dirname, filepath in conn.dir_files_not_seen():
+                debug("*DELETED*", os.path.join(dirname, filepath))
+            conn.delete_not_seen()
+            conn.commit()
 
-    print(f"""\
+            print(f"""\
 Known:      {known_files}
 Updated:    {updated_files}
 Unchanged:  {unchanged_files}
@@ -91,7 +88,7 @@ Deleted:    {deleted_files}
 
 Total seen: {file_count}""")
 
-    conn.record_run(started, file_count, known_files, updated_files, unchanged_files, new_files, deleted_files)
+        conn.record_run(started, dir_path, file_count, known_files, updated_files, unchanged_files, new_files, deleted_files)
 
 if __name__ == '__main__':
 
@@ -101,5 +98,7 @@ if __name__ == '__main__':
     args = {}
     for name in "storage", "database", "create":
         args[name] = input(f"{name.capitalize()}: ")
+    if not args["storage"]:
+        args["storage"] = "postgresql"
     args['create'] = (args['create'] == 'yes')
     main(**args)
