@@ -15,19 +15,6 @@ def debug(*args, **kwargs):
 
 def main(args=sys.argv[1:], DEBUG=False, storage='postgresql', database='filescan', create=False):
 
-    if create:
-        answer = input(f"""
-This operation will destroy any existing
-database with the following characteristics:
-
-Storage:    {storage}
-Database:   {database}
-
-Do you wish to proceed (yes/no): """)
-        if answer != "yes":
-            sys.exit("Aborted: user opted not to create a new database.")
-
-
     store_name = f"{storage}_store"
     store = importlib.import_module(store_name)
     conn = store.Connection(database, create=create)
@@ -101,4 +88,15 @@ if __name__ == '__main__':
     if not args["storage"]:
         args["storage"] = "postgresql"
     args['create'] = (args['create'] == 'yes')
+    if args['create']:
+        answer = input(f"""
+This operation will destroy any existing
+database with the following characteristics:
+
+Storage:    {storage}
+Database:   {database}
+
+Do you wish to proceed (yes/no): """)
+        if answer != "yes":
+            sys.exit("Aborted: user opted not to create a new database.")
     main(**args)
