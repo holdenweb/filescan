@@ -19,12 +19,24 @@ class Connection:
             )
             self.curs.execute("DROP TABLE IF EXISTS location")
             self.curs.execute(
-                "CREATE TABLE location (id SERIAL PRIMARY KEY, filename VARCHAR, dirpath VARCHAR, modified DOUBLE PRECISION, checksum CHAR(64), seen BOOLEAN)"
+                "CREATE TABLE location ("
+                "id SERIAL PRIMARY KEY, "
+                "filename VARCHAR, dirpath VARCHAR, "
+                "modified DOUBLE PRECISION, checksum CHAR(64), "
+                "seen BOOLEAN)"
             )
             self.curs.execute("ALTER TABLE location ADD COLUMN length INTEGER")
             self.curs.execute("DROP TABLE IF EXISTS runlog")
             self.curs.execute(
-                "CREATE TABLE runlog (id SERIAL PRIMARY KEY, when_run TIMESTAMP, files INTEGER, known INTEGER, updated INTEGER, unchanged INTEGER, new_files INTEGER, deleted INTEGER)"
+                "CREATE TABLE runlog ("
+                "id SERIAL PRIMARY KEY, "
+                "when_run TIMESTAMP, "
+                "files INTEGER, "
+                "known INTEGER, "
+                "updated INTEGER, "
+                "unchanged INTEGER, "
+                "new_files INTEGER, "
+                "deleted INTEGER)"
             )
             self.curs.execute("ALTER TABLE runlog ADD COLUMN rootdir VARCHAR")
 
@@ -65,7 +77,6 @@ class Connection:
         if result:
             return result
         else:
-            print(f"failed to find {dir_path}{file_path}")
             raise Connection.DoesNotExist()
 
     def update_modified_hash_seen(self, id, modified, hash, seen=True):
@@ -102,14 +113,10 @@ class Connection:
         return self.curs.fetchone()[0]
 
     def dir_files_not_seen(self):
-        self.curs.execute("""SELECT dirpath, filename FROM location WHERE NOT seen""")
+        self.curs.execute("""SELECT dirpath, filename FROM location WHERE dirpath LIKE (%s || '%%') AND NOT seen""", (dirpath, ))
         return self.curs.fetchmany()
 
     def delete_not_seen(self):
-        print("Deleting the following unseen files")
-        self.curs.execute("""SELECT dirpath, filename from location WHERE NOT seen""")
-        for r in  self.curs.fetchall():
-            print(f"{r[0]}{r[1]}")
         self.curs.execute("""DELETE from location WHERE NOT seen""")
 
     def record_run(
