@@ -16,7 +16,7 @@ class Connection:
         return self.conn.commit()
 
     def clear_seen_bits(self, prefix):
-        self.conn.execute("UPDATE LOCATION SET seen=FALSE WHERE dirpath LIKE (%s || '%%')", (dirpath, )"
+        self.conn.execute("UPDATE LOCATION SET seen=FALSE WHERE dirpath LIKE (%s || '%%')", (dirpath, )
 
     def id_mod_seen(self, dir_path, file_path):
         curs = self.conn.execute('''

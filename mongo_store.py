@@ -9,17 +9,19 @@ class FileRecord(mongoengine.Document):
     seen = mongoengine.BooleanField()
     length = mongoengine.IntField()
 
+
 class TokenPos(mongoengine.Document):
     hash = mongoengine.StringField()
     name = mongoengine.StringField()
     line = mongoengine.IntField()
     pos = mongoengine.IntField()
 
+
 class Connection:
 
     DoesNotExist = mongoengine.DoesNotExist
 
-    def __init__(self, dbname='test', document_class=FileRecord, create=False):
+    def __init__(self, dbname="test", document_class=FileRecord, create=False):
         self.conn = mongoengine.connect(dbname)
         self.document_class = document_class
         if create:
@@ -80,5 +82,5 @@ class Connection:
         self.document_class.objects(seen=False).delete()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("Have you run this code's tests?")
