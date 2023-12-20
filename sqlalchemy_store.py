@@ -116,8 +116,7 @@ class Connection:
             raise self.DoesNotExist
 
     def update_modified_hash_size(self, id, modified, hash, size, seen=True):
-        q = select(Location).where(Location.id == id)
-        loc = self.session.scalars(q).one()
+        loc = self.session.get(Location, id)
         loc.modified = modified
         loc.checksum = hash
         loc.filesize = size
