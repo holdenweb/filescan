@@ -22,7 +22,7 @@ def scan_tokens(conn, filepath, hash):
                         t.string
                     )
         except Exception as e:
-            pass  # TODO: sensible handling of parse errors
+            print(e)  # TODO: sensible handling of parse and other errors
 
 
 if __name__ == "__main__":
