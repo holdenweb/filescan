@@ -610,6 +610,19 @@ pymysql = ["pymysql"]
 sqlcipher = ["sqlcipher3-binary"]
 
 [[package]]
+name = "sqlalchemy-serializer"
+version = "1.4.1"
+description = "Mixin for SQLAlchemy-models serialization without pain"
+optional = false
+python-versions = "*"
+files = [
+    {file = "SQLAlchemy-serializer-1.4.1.tar.gz", hash = "sha256:c4cf3e3eebbffa5b46a77ddb886230e5d8c17fd0b9ddbd57eed1a837eb1463cc"},
+]
+
+[package.dependencies]
+SQLAlchemy = "*"
+
+[[package]]
 name = "types-psycopg2"
 version = "2.9.21.20"
 description = "Typing stubs for psycopg2"
@@ -634,4 +647,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "8858eff014aaaf13d93e67abeadde3c7484cb6dce3ffeb03eae4deebf53a8382"
+content-hash = "408f1e50e7f592d5f165bfd9d05e4c1e644bae26daf5c7db9c5d27efc887c8e5"
