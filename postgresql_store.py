@@ -25,7 +25,7 @@ class Connection:
                 "modified DOUBLE PRECISION, checksum CHAR(64), "
                 "seen BOOLEAN)"
             )
-            self.curs.execute("ALTER TABLE location ADD COLUMN length INTEGER")
+            self.curs.execute("ALTER TABLE location ADD COLUMN filesize INTEGER")
             self.curs.execute("DROP TABLE IF EXISTS runlog")
             self.curs.execute(
                 "CREATE TABLE runlog ("
@@ -96,28 +96,28 @@ class Connection:
             (id,),
         )
 
-    def db_insert_location(self, file_path, dir_path, disk_modified, hash):
+    def db_insert_location(self, file_path, dir_path, disk_modified, hash, size):
         self.curs.execute(
             """
-        INSERT INTO location (filename, dirpath, modified, checksum, seen)
-        VALUES (%s, %s, %s, %s, TRUE)""",
-            (file_path, dir_path, disk_modified, hash),
+        INSERT INTO location (filename, dirpath, modified, checksum, seen, filesize)
+        VALUES (%s, %s, %s, %s, TRUE, %s)""",
+            (file_path, dir_path, disk_modified, hash, size),
         )
 
-    def all_file_count(self):
-        self.curs.execute("SELECT count(*) FROM location")
+    def all_file_count(self, prefix):
+        self.curs.execute("SELECT count(*) FROM location WHERE dirpath LIKE %s", (f"{prefix}%", ))
         return self.curs.fetchone()[0]
 
-    def count_not_seen(self):
-        self.curs.execute("""SELECT count(*) FROM location WHERE NOT seen""")
+    def count_not_seen(self, prefix):
+        self.curs.execute("""SELECT count(*) FROM location WHERE NOT seen AND dirpath LIKE %s""", (f"{prefix}%", ))
         return self.curs.fetchone()[0]
 
-    def dir_files_not_seen(self):
-        self.curs.execute("""SELECT dirpath, filename FROM location WHERE dirpath LIKE (%s || '%%') AND NOT seen""", (dirpath, ))
+    def dir_files_not_seen(self, prefix):
+        self.curs.execute("""SELECT dirpath, filename FROM location WHERE dirpath LIKE %s AND NOT seen""", (f"{prefix}%", ))
         return self.curs.fetchmany()
 
-    def delete_not_seen(self):
-        self.curs.execute("""DELETE from location WHERE NOT seen""")
+    def delete_not_seen(self, prefix):
+        self.curs.execute("""DELETE from location WHERE NOT seen AND dirpath LIKE %s""", (f"{prefix}%", ))
 
     def record_run(
         self,

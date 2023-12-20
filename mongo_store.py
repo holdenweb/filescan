@@ -7,7 +7,7 @@ class FileRecord(mongoengine.Document):
     modified = mongoengine.FloatField()
     hash = mongoengine.StringField()
     seen = mongoengine.BooleanField()
-    length = mongoengine.IntField()
+    filesize = mongoengine.IntField()
 
 
 class TokenPos(mongoengine.Document):

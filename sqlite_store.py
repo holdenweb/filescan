@@ -10,13 +10,13 @@ class Connection:
         if create:
             self.conn.execute("DROP TABLE IF EXISTS location")
             self.conn.execute("CREATE TABLE location (id INTEGER PRIMARY KEY, filename VARCHAR, dirpath varchar, modified number, checksum integer, seen boolean)")
-            self.conn.execute("ALTER TABLE location ADD COLUMN length INTEGER")
+            self.conn.execute("ALTER TABLE location ADD COLUMN filesize INTEGER")
 
     def commit(self):
         return self.conn.commit()
 
     def clear_seen_bits(self, prefix):
-        self.conn.execute("UPDATE LOCATION SET seen=FALSE WHERE dirpath LIKE (%s || '%%')", (dirpath, )
+        self.conn.execute("UPDATE LOCATION SET seen=FALSE WHERE dirpath LIKE (%s || '%%')", (dirpath, ))
 
     def id_mod_seen(self, dir_path, file_path):
         curs = self.conn.execute('''
