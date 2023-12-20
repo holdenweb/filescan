@@ -50,7 +50,7 @@ def scan_directory(base_dir, conn):
                     hash = hashlib.sha256(
                         open(current_file_path, "rb").read()
                     ).hexdigest()
-                    conn.update_modified_hash_seen(id, disk_modified, hash)
+                    conn.update_modified_hash_size(id, disk_modified, hash, size)
                     scan_tokens(conn, current_file_path, hash)
                     debug("*UPDATED*", current_file_path)
                 else:
@@ -65,8 +65,9 @@ def scan_directory(base_dir, conn):
                     scan_tokens(conn, current_file_path, hash)
                 except FileNotFoundError:
                     hash = "UNHASHABLE"
-                conn.db_insert_location(filename, dir_path, disk_modified, hash, size)
+                conn.db_insert_location(dir_path, filename, disk_modified, hash, size)
                 debug("*CREATED*", current_file_path)
+            print("Files not seen:", conn.count_not_seen(base_dir))
             conn.commit()
     ct = conn.all_file_count(base_dir)
     deleted_files = conn.count_not_seen(base_dir)

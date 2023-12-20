@@ -101,7 +101,8 @@ class Connection:
         self.session.add(t)
 
     def clear_seen_bits(self, prefix):
-        update(Location).where(Location.dirpath.like(f"{prefix}%")).values(seen=False)
+        q = update(Location).where(Location.dirpath.like(f"{prefix}%")).values(seen=False)
+        return self.session.execute(q)
 
     def id_mod_hash_seen(self, dirpath, filename):
         try:
@@ -113,21 +114,20 @@ class Connection:
         except NoResultFound:
             raise self.DoesNotExist
 
-    def update_modified_hash_seen(self, id, modified, hash, seen=True):
+    def update_modified_hash_size(self, id, modified, hash, size, seen=True):
         q = select(Location).where(Location.id == id)
         loc = self.session.scalars(q).one()
         loc.modified = modified
         loc.checksum = hash
+        loc.filesize = size
         loc.seen = seen
         self.session.add(loc)
 
-    def update_seen(self, id):
-        loc = self.session.query(Location).get(id)
+    def update_seen(self, loc):
         loc.seen = True
-        #print(f"Seen {loc.dirpath}{loc.filename}")
         self.session.add(loc)
 
-    def db_insert_location(self, filename, dirpath, disk_modified, hash, size):
+    def db_insert_location(self, dirpath, filename, disk_modified, hash, size):
         loc = Location(dirpath=dirpath, filename=filename, modified=disk_modified, checksum=hash, filesize=size, seen=True)
         print(f"Added {dirpath}{filename}")
         self.session.add(loc)
