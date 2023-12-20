@@ -42,7 +42,7 @@ class Connection:
     def save_reference(self, hash, name, line, pos):
         TokenPos(hash=hash, name=name, line=line, pos=pos).save()
 
-    def id_mod_hash_seen(self, dir_path, file_path):
+    def location_for(self, dir_path, file_path):
         fieldnames = ["id", "modified", "hash", "seen"]
         result = self.document_class.objects.only(*fieldnames).get(
             dirpath=dir_path, filename=file_path

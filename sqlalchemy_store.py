@@ -11,8 +11,10 @@ from sqlalchemy import (
     select,
     exists,
     func,
+    JSON,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy_serializer import SerializerMixin
 from dotenv import load_dotenv
@@ -20,7 +22,7 @@ from dotenv import load_dotenv
 DB_URL_FMT = "postgresql+psycopg2://localhost:5432/{}"
 
 
-class Model(DeclarativeBase, SerializerMixin):
+class Model(DeclarativeBase):
     metadata = MetaData(
         naming_convention={
             "ix": "ix_%column_0_label)s",
@@ -32,7 +34,7 @@ class Model(DeclarativeBase, SerializerMixin):
     )
 
 
-class Location(Model):
+class Location(Model, SerializerMixin):
     __tablename__ = "location"
     id: Mapped[int] = mapped_column(primary_key=True)
     filename: Mapped[str] = mapped_column(String())
@@ -43,7 +45,7 @@ class Location(Model):
     filesize: Mapped[int]
 
 
-class TokenPos(Model):
+class TokenPos(Model, SerializerMixin):
     __tablename__ = 'tokenpos'
     id: Mapped[int] = mapped_column(primary_key=True)
     hash: Mapped[str] = mapped_column(String(64))
@@ -52,7 +54,7 @@ class TokenPos(Model):
     pos: Mapped[int]
 
 
-class RunLog(Model):
+class RunLog(Model, SerializerMixin):
     __tablename__ = "runlog"
     id: Mapped[int] = mapped_column(primary_key=True)
     when_run: Mapped[datetime] = mapped_column(DateTime)
@@ -63,6 +65,13 @@ class RunLog(Model):
     unchanged: Mapped[int]
     new_files: Mapped[int]
     deleted: Mapped[int]
+
+
+class Archive(Model):
+    __tablename__ = 'archive'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    rectype: Mapped[str] = mapped_column(String())
+    data: Mapped[dict] = mapped_column(JSONB())
 
 
 class Connection:
@@ -105,7 +114,7 @@ class Connection:
         q = update(Location).where(Location.dirpath.like(f"{prefix}%")).values(seen=False)
         return self.session.execute(q)
 
-    def id_mod_hash_seen(self, dirpath, filename):
+    def location_for(self, dirpath, filename):
         try:
             q = select(
                 Location
@@ -115,8 +124,7 @@ class Connection:
         except NoResultFound:
             raise self.DoesNotExist
 
-    def update_modified_hash_size(self, id, modified, hash, size, seen=True):
-        loc = self.session.get(Location, id)
+    def update_modified_hash_size(self, loc, modified, hash, size, seen=True):
         loc.modified = modified
         loc.checksum = hash
         loc.filesize = size
@@ -164,14 +172,3 @@ class Connection:
         run = RunLog(when_run=when, rootdir=rootdir, files=files, known=known, updated=updated, unchanged=unchanged, new_files=new_files, deleted=deleted)
         self.session.add(run)
 
-
-if __name__ == "__main__":
-    dbname = 'sa'
-    db_url = DB_URL_FMT.format(dbname)
-    engine = create_engine(db_url, echo=True)
-    Model.metadata.drop_all(engine)
-    Model.metadata.create_all(engine)
-    c = Connection()
-    import sys
-
-    sys.exit("STOPS HERE!")

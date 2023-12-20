@@ -66,7 +66,7 @@ class Connection:
             "UPDATE location SET seen=FALSE WHERE dirpath LIKE (%s || '%%')", (prefix,)
         )
 
-    def id_mod_hash_seen(self, dir_path, file_path):
+    def location_for(self, dir_path, file_path):
         self.curs.execute(
             """
         SELECT id, modified, checksum, seen FROM location

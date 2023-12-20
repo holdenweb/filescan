@@ -42,20 +42,20 @@ def scan_directory(base_dir, conn):
             disk_modified = stat.st_mtime
             size = stat.st_size
             try:
-                result = conn.id_mod_hash_seen(dir_path, filename)
-                id, modified, hash, seen = result.id, result.modified, result.checksum, result.seen
+                loc = conn.location_for(dir_path, filename)
+                id, hash, seen = loc.id, loc.checksum, loc.seen
                 known_files += 1
-                if disk_modified != modified:  # Changed since last scan
+                if disk_modified != loc.modified:  # Changed since last scan
                     updated_files += 1
                     hash = hashlib.sha256(
                         open(current_file_path, "rb").read()
                     ).hexdigest()
-                    conn.update_modified_hash_size(id, disk_modified, hash, size)
+                    conn.update_modified_hash_size(loc, disk_modified, hash, size)
                     scan_tokens(conn, current_file_path, hash)
                     debug("*UPDATED*", current_file_path)
                 else:
                     unchanged_files += 1
-                    conn.update_seen(result)
+                    conn.update_seen(loc)
             except conn.DoesNotExist:  # New file
                 new_files += 1
                 try:
@@ -120,23 +120,4 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         sys.exit("Nothing to do!")
 
-    #args = {}
-    #for name in "storage", "database", "create":
-        #args[name] = input(f"{name.capitalize()}: ")
-    #if not args["storage"]:
-        #args["storage"] = "postgresql"
-    #args["create"] = args["create"] == "yes"
-    #if args["create"]:
-        #answer = input(
-            #f"""
-#This operation will destroy any existing
-#database with the following characteristics:
-
-#Storage:    {storage}
-#Database:   {database}
-
-#Do you wish to proceed (yes/no): """
-        #)
-        #if answer != "yes":
-            #sys.exit("Aborted: user opted not to create a new database.")
     main(storage="sqlalchemy", database="sa", create=False)
