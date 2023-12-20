@@ -123,8 +123,8 @@ class Connection:
         loc.seen = seen
         self.session.add(loc)
 
-    def update_seen(self, loc):
-        loc.seen = True
+    def update_seen(self, loc, value=True):
+        loc.seen = value
         self.session.add(loc)
 
     def db_insert_location(self, dirpath, filename, disk_modified, hash, size):
