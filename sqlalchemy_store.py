@@ -14,12 +14,13 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy_serializer import SerializerMixin
 from dotenv import load_dotenv
 
 DB_URL_FMT = "postgresql+psycopg2://localhost:5432/{}"
 
 
-class Model(DeclarativeBase):
+class Model(DeclarativeBase, SerializerMixin):
     metadata = MetaData(
         naming_convention={
             "ix": "ix_%column_0_label)s",
