@@ -107,9 +107,9 @@ class Connection:
     def id_mod_hash_seen(self, dirpath, filename):
         try:
             q = select(
-                Location.id, Location.modified, Location.checksum, Location.seen
+                Location
             ).where(Location.dirpath == dirpath, Location.filename == filename)
-            result = self.session.execute(q).one()
+            result = self.session.scalars(q).one()
             return result
         except NoResultFound:
             raise self.DoesNotExist
@@ -129,7 +129,7 @@ class Connection:
 
     def db_insert_location(self, dirpath, filename, disk_modified, hash, size):
         loc = Location(dirpath=dirpath, filename=filename, modified=disk_modified, checksum=hash, filesize=size, seen=True)
-        print(f"Added {dirpath}{filename}")
+        #print(f"Added {dirpath}{filename}")
         self.session.add(loc)
 
     def all_file_count(self, prefix):
@@ -142,7 +142,8 @@ class Connection:
 
     def dir_files_not_seen(self, prefix):
         q = select(Location.dirpath, Location.filename).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
-        return self.session.scalars(q)
+        result = self.session.execute(q)
+        return result
 
     def delete_not_seen(self, prefix):
         q = select(Location).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)

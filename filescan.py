@@ -43,7 +43,7 @@ def scan_directory(base_dir, conn):
             size = stat.st_size
             try:
                 result = conn.id_mod_hash_seen(dir_path, filename)
-                id, modified, hash, seen = result
+                id, modified, hash, seen = result.id, result.modified, result.checksum, result.seen
                 known_files += 1
                 if disk_modified != modified:  # Changed since last scan
                     updated_files += 1
@@ -55,7 +55,7 @@ def scan_directory(base_dir, conn):
                     debug("*UPDATED*", current_file_path)
                 else:
                     unchanged_files += 1
-                    conn.update_seen(id)
+                    conn.update_seen(result)
             except conn.DoesNotExist:  # New file
                 new_files += 1
                 try:
@@ -67,12 +67,12 @@ def scan_directory(base_dir, conn):
                     hash = "UNHASHABLE"
                 conn.db_insert_location(dir_path, filename, disk_modified, hash, size)
                 debug("*CREATED*", current_file_path)
-            print("Files not seen:", conn.count_not_seen(base_dir))
+            #print("Files not seen:", conn.count_not_seen(base_dir))
             conn.commit()
     ct = conn.all_file_count(base_dir)
     deleted_files = conn.count_not_seen(base_dir)
-    for dirname, filepath in conn.dir_files_not_seen(base_dir):
-        print("*DELETED*", os.path.join(dirname, filepath))
+    #for dirname, filepath in conn.dir_files_not_seen(base_dir):
+        #print("*DELETED*", os.path.join(dirname, filepath))
     conn.delete_not_seen(base_dir)
     conn.record_run(
         started,
