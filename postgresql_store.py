@@ -79,7 +79,7 @@ class Connection:
         else:
             raise Connection.DoesNotExist()
 
-    def update_modified_hash_seen(self, id, modified, hash, seen=True):
+    def update_details(self, id, modified, hash, seen=True):
         self.curs.execute(
             """
         UPDATE location \

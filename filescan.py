@@ -50,9 +50,10 @@ def scan_directory(base_dir, conn):
                     hash = hashlib.sha256(
                         open(current_file_path, "rb").read()
                     ).hexdigest()
-                    conn.update_modified_hash_size(loc, disk_modified, hash, size)
+                    loc = conn.update_details(loc, disk_modified, hash, size)
                     scan_tokens(conn, current_file_path, hash)
                     debug("*UPDATED*", current_file_path)
+                    conn.archive_record("UPDATED", 'location', loc)
                 else:
                     unchanged_files += 1
                     conn.update_seen(loc)
@@ -65,18 +66,19 @@ def scan_directory(base_dir, conn):
                     scan_tokens(conn, current_file_path, hash)
                 except FileNotFoundError:
                     hash = "UNHASHABLE"
-                conn.db_insert_location(dir_path, filename, disk_modified, hash, size)
+                loc = conn.db_insert_location(dir_path, filename, disk_modified, hash, size)
                 debug("*CREATED*", current_file_path)
-            #print("Files not seen:", conn.count_not_seen(base_dir))
+                conn.archive_record("CREATED", 'locqtion', loc)
             conn.commit()
     ct = conn.all_file_count(base_dir)
     deleted_files = conn.count_not_seen(base_dir)
-    #for dirname, filepath in conn.dir_files_not_seen(base_dir):
-        #print("*DELETED*", os.path.join(dirname, filepath))
+    for loc in conn.locations_not_seen(base_dir):
+        debug(f"*DELETED* {loc.dirpath}{loc.filename}")
+        conn.archive_record("DELETED", "location", loc)
     conn.delete_not_seen(base_dir)
     conn.record_run(
         started,
-        dir_path,
+        base_dir,
         file_count,
         known_files,
         updated_files,

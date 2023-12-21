@@ -49,7 +49,7 @@ class Connection:
         )
         return tuple(getattr(result, fld) for fld in fieldnames)
 
-    def update_modified_hash_seen(self, id, modified, hash, seen=True):
+    def update_details(self, id, modified, hash, seen=True):
         return self.document_class.objects(pk=id).update(
             modified=modified, hash=hash, seen=seen
         )

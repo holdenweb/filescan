@@ -70,6 +70,7 @@ class RunLog(Model, SerializerMixin):
 class Archive(Model):
     __tablename__ = 'archive'
     id: Mapped[int] = mapped_column(primary_key=True)
+    reason: Mapped[str] = mapped_column(String())
     rectype: Mapped[str] = mapped_column(String())
     data: Mapped[dict] = mapped_column(JSONB())
 
@@ -124,12 +125,13 @@ class Connection:
         except NoResultFound:
             raise self.DoesNotExist
 
-    def update_modified_hash_size(self, loc, modified, hash, size, seen=True):
+    def update_details(self, loc, modified, hash, size, seen=True):
         loc.modified = modified
         loc.checksum = hash
         loc.filesize = size
         loc.seen = seen
         self.session.add(loc)
+        return loc
 
     def update_seen(self, loc, value=True):
         loc.seen = value
@@ -139,6 +141,7 @@ class Connection:
         loc = Location(dirpath=dirpath, filename=filename, modified=disk_modified, checksum=hash, filesize=size, seen=True)
         #print(f"Added {dirpath}{filename}")
         self.session.add(loc)
+        return loc
 
     def all_file_count(self, prefix):
         q = select(func.count(Location.id)).where(Location.dirpath.like(f"{prefix}%"))
@@ -148,9 +151,9 @@ class Connection:
         q = select(func.count(Location.id)).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
         return self.session.scalars(q).one()
 
-    def dir_files_not_seen(self, prefix):
-        q = select(Location.dirpath, Location.filename).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
-        result = self.session.execute(q)
+    def locations_not_seen(self, prefix):
+        q = select(Location).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
+        result = self.session.scalars(q)
         return result
 
     def delete_not_seen(self, prefix):
@@ -172,3 +175,6 @@ class Connection:
         run = RunLog(when_run=when, rootdir=rootdir, files=files, known=known, updated=updated, unchanged=unchanged, new_files=new_files, deleted=deleted)
         self.session.add(run)
 
+    def archive_record(self, reason, rectype, record):
+        archive = Archive(reason=reason, rectype=rectype, data=record.to_dict())
+        self.session.add(archive)
