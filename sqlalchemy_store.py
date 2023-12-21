@@ -136,7 +136,7 @@ class Connection:
             result = self.session.scalars(q).one()
             return result
         except NoResultFound:
-            raise self.DoesNotExist
+            raise self.DoesNotExist(f"{dirpath}{filename}")
 
     def record_run(
         self,

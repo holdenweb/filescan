@@ -2,7 +2,7 @@
 
 import pytest
 
-from sqlalchemy_store import Model, Location, TokenPos, RunLog, Connection
+from sqlalchemy_store import Model, Location, TokenPos, RunLog, Archive, Connection
 from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,12 @@ def session(connection):
         yield connection.session
     connection.session.rollback()
 
+def verify_empty(session):
+    for record_type in (Location, TokenPos, RunLog, Archive):
+        assert session.scalar(func.count(Location.id)) == 0
+
 def test_structure(session):
+    verify_empty(session)
     with session.begin_nested() as test_session:
         session.add(
             Location(
@@ -43,6 +48,7 @@ def test_structure(session):
         assert session.scalar(q) == 0
 
 def test_seen_bits(connection, session):
+    verify_empty(session)
     with session.begin_nested() as test_session:
         q = select(func.count(Location.id))
         assert session.scalar(q) == 0

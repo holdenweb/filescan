@@ -68,7 +68,7 @@ def scan_directory(base_dir, conn):
                     hash = "UNHASHABLE"
                 loc = conn.db_insert_location(dir_path, filename, disk_modified, hash, size)
                 debug("*CREATED*", current_file_path)
-                conn.archive_record("CREATED", 'locqtion', loc)
+                conn.archive_record("CREATED", 'location', loc)
             conn.commit()
     ct = conn.all_file_count(base_dir)
     deleted_files = conn.unseen_location_count(base_dir)
