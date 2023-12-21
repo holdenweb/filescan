@@ -53,7 +53,7 @@ class Connection:
         curs = self.conn.execute("SELECT count(*) FROM location")
         return curs.fetchone()[0]
 
-    def count_not_seen(self):
+    def unseen_location_count(self):
         curs = self.conn.execute('''SELECT count(*) FROM location WHERE NOT seen''')
         return curs.fetchone()[0]
 
@@ -61,5 +61,5 @@ class Connection:
         curs = self.conn.execute('''SELECT dirpath, filename FROM location WHERE NOT seen''')
         return curs.fetchmany()
 
-    def delete_not_seen(self):
+    def delete_unseen_locations(self):
         curs = self.conn.execute('''DELETE from location WHERE NOT seen''')

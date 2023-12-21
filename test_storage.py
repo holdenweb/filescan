@@ -59,16 +59,16 @@ def test_seen_bits(connection, session):
             )
         test_session.commit()
     with session.begin_nested() as test_session:
-        assert connection.count_not_seen(PREFIX) == 10
+        assert connection.unseen_location_count(PREFIX) == 10
         q1 = select(func.count(Location.id))
         q2 = q1.where(Location.seen == True)
         q3 = q1.where(Location.seen == False)
         for q, r in (q1, 20), (q2, 10), (q3, 10):
             assert session.scalar(q) == r
-        connection.delete_not_seen(PREFIX)
+        connection.delete_unseen_locations(PREFIX)
         assert session.scalar(q1) == 10
-        assert connection.count_not_seen(PREFIX) == 0
+        assert connection.unseen_location_count(PREFIX) == 0
         q = select(Location)
         for loc in session.scalars(q):  # Should be passing the whole object here.
             connection.update_seen(loc, False)
-        assert connection.count_not_seen(PREFIX) == 10
+        assert connection.unseen_location_count(PREFIX) == 10

@@ -91,6 +91,17 @@ class Connection:
             Model.metadata.drop_all(self.engine)
             Model.metadata.create_all(self.engine)
 
+    def all_file_count(self, prefix):
+        q = select(func.count(Location.id)).where(Location.dirpath.like(f"{prefix}%"))
+        return self.session.scalar(q)
+
+    def archive_record(self, reason, rectype, record):
+        archive = Archive(reason=reason, rectype=rectype, data=record.to_dict())
+        self.session.add(archive)
+    def clear_seen_bits(self, prefix):
+        q = update(Location).where(Location.dirpath.like(f"{prefix}%")).values(seen=False)
+        return self.session.execute(q)
+
     def create_db(self):
         raise NotImplementedError("Sorry, Dave, I'm afraid I can't do that.")
         m_conn = psycopg2.connect(dbname="postgres")
@@ -103,6 +114,12 @@ class Connection:
     def commit(self):
          return self.session.commit()
 
+    def db_insert_location(self, dirpath, filename, disk_modified, hash, size):
+        loc = Location(dirpath=dirpath, filename=filename, modified=disk_modified, checksum=hash, filesize=size, seen=True)
+        #print(f"Added {dirpath}{filename}")
+        self.session.add(loc)
+        return loc
+
     def hash_exists(self, hash):
         q = select(exists().where(Location.checksum == hash))
         return self.session.scalar(q)
@@ -110,10 +127,6 @@ class Connection:
     def save_reference(self, hash, name, line, pos):
         t = TokenPos(hash=hash, name=name, line=line, pos=pos)
         self.session.add(t)
-
-    def clear_seen_bits(self, prefix):
-        q = update(Location).where(Location.dirpath.like(f"{prefix}%")).values(seen=False)
-        return self.session.execute(q)
 
     def location_for(self, dirpath, filename):
         try:
@@ -124,6 +137,20 @@ class Connection:
             return result
         except NoResultFound:
             raise self.DoesNotExist
+
+    def record_run(
+        self,
+        when: datetime,
+        rootdir: str,
+        files: int,
+        known: int,
+        updated: int,
+        unchanged: int,
+        new_files: int,
+        deleted: int,
+        ):
+        run = RunLog(when_run=when, rootdir=rootdir, files=files, known=known, updated=updated, unchanged=unchanged, new_files=new_files, deleted=deleted)
+        self.session.add(run)
 
     def update_details(self, loc, modified, hash, size, seen=True):
         loc.modified = modified
@@ -137,44 +164,17 @@ class Connection:
         loc.seen = value
         self.session.add(loc)
 
-    def db_insert_location(self, dirpath, filename, disk_modified, hash, size):
-        loc = Location(dirpath=dirpath, filename=filename, modified=disk_modified, checksum=hash, filesize=size, seen=True)
-        #print(f"Added {dirpath}{filename}")
-        self.session.add(loc)
-        return loc
-
-    def all_file_count(self, prefix):
-        q = select(func.count(Location.id)).where(Location.dirpath.like(f"{prefix}%"))
-        return self.session.scalar(q)
-
-    def count_not_seen(self, prefix):
+    def unseen_location_count(self, prefix):
         q = select(func.count(Location.id)).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
         return self.session.scalars(q).one()
 
-    def locations_not_seen(self, prefix):
+    def unseen_locations(self, prefix):
         q = select(Location).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
         result = self.session.scalars(q)
         return result
 
-    def delete_not_seen(self, prefix):
+    def delete_unseen_locations(self, prefix):
         q = select(Location).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
         for r in self.session.scalars(q):
             self.session.delete(r)
 
-    def record_run(
-        self,
-        when: datetime,
-        rootdir: str,
-        files: int,
-        known: int,
-        updated: int,
-        unchanged: int,
-        new_files: int,
-        deleted: int,
-    ):
-        run = RunLog(when_run=when, rootdir=rootdir, files=files, known=known, updated=updated, unchanged=unchanged, new_files=new_files, deleted=deleted)
-        self.session.add(run)
-
-    def archive_record(self, reason, rectype, record):
-        archive = Archive(reason=reason, rectype=rectype, data=record.to_dict())
-        self.session.add(archive)

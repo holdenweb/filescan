@@ -108,7 +108,7 @@ class Connection:
         self.curs.execute("SELECT count(*) FROM location WHERE dirpath LIKE %s", (f"{prefix}%", ))
         return self.curs.fetchone()[0]
 
-    def count_not_seen(self, prefix):
+    def unseen_location_count(self, prefix):
         self.curs.execute("""SELECT count(*) FROM location WHERE NOT seen AND dirpath LIKE %s""", (f"{prefix}%", ))
         return self.curs.fetchone()[0]
 
@@ -116,7 +116,7 @@ class Connection:
         self.curs.execute("""SELECT dirpath, filename FROM location WHERE dirpath LIKE %s AND NOT seen""", (f"{prefix}%", ))
         return self.curs.fetchmany()
 
-    def delete_not_seen(self, prefix):
+    def delete_unseen_locations(self, prefix):
         self.curs.execute("""DELETE from location WHERE NOT seen AND dirpath LIKE %s""", (f"{prefix}%", ))
 
     def record_run(

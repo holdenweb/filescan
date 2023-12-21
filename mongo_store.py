@@ -70,7 +70,7 @@ class Connection:
     def all_file_count(self):
         return self.document_class.objects.count()
 
-    def count_not_seen(self):
+    def unseen_location_count(self):
         return self.document_class.objects(seen=False).count()
 
     def dir_files_not_seen(self):
@@ -78,7 +78,7 @@ class Connection:
         result = self.document_class.objects(seen=False).only(*fieldnames)
         return [tuple(getattr(rec, fld) for fld in fieldnames) for rec in result]
 
-    def delete_not_seen(self):
+    def delete_unseen_locations(self):
         self.document_class.objects(seen=False).delete()
 
 

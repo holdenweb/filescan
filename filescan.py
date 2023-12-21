@@ -71,11 +71,11 @@ def scan_directory(base_dir, conn):
                 conn.archive_record("CREATED", 'locqtion', loc)
             conn.commit()
     ct = conn.all_file_count(base_dir)
-    deleted_files = conn.count_not_seen(base_dir)
-    for loc in conn.locations_not_seen(base_dir):
+    deleted_files = conn.unseen_location_count(base_dir)
+    for loc in conn.unseen_locations(base_dir):
         debug(f"*DELETED* {loc.dirpath}{loc.filename}")
         conn.archive_record("DELETED", "location", loc)
-    conn.delete_not_seen(base_dir)
+    conn.delete_unseen_locations(base_dir)
     conn.record_run(
         started,
         base_dir,
