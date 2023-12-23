@@ -90,14 +90,14 @@ def scan_directory(base_dir, conn):
 
     print(
         f"""\
-Known:      {known_files:6,d}
-Unchanged:  {unchanged_files:6,d}
-Updated:    {updated_files:6,d}
-New:        {new_files:6,d}
-Deleted:    {deleted_files:6,d}
-------------------
-Total seen: {file_count:6,d}
-=================="""
+Known:      {known_files:7,d}
+Unchanged:  {unchanged_files:7,d}
+Updated:    {updated_files:7,d}
+New:        {new_files:7,d}
+Deleted:    {deleted_files:7,d}
+-------------------
+Total seen: {file_count:7,d}
+==================="""
     )
 
 

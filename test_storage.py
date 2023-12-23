@@ -23,7 +23,7 @@ def session(connection):
 
 def verify_empty(session):
     for record_type in (Location, TokenPos, RunLog, Archive):
-        assert session.scalar(func.count(Location.id)) == 0
+        assert session.scalar(func.count(record_type.id)) == 0
 
 def test_structure(session):
     verify_empty(session)
@@ -46,6 +46,7 @@ def test_structure(session):
     with session.begin_nested() as test_session:
         q = select(func.count(Location.id))
         assert session.scalar(q) == 0
+    session.rollback()
 
 def test_seen_bits(connection, session):
     verify_empty(session)
@@ -78,3 +79,11 @@ def test_seen_bits(connection, session):
         for loc in session.scalars(q):  # Should be passing the whole object here.
             connection.update_seen(loc, False)
         assert connection.unseen_location_count(PREFIX) == 10
+        session.rollback()
+
+def test_archive(connection, session):
+    verify_empty(session)
+    loc = Location(filename="test.txt", dirpath="/nosuch/directory/", modified=115678.0, checksum="---- TOTALLY BOGUS ----", seen=True, filesize=1025)
+    with session.begin_nested() as test_session:
+        connection.archive_record("DELETED", "location", loc)
+        assert session.scalar(func.count(Archive.id)) == 0
