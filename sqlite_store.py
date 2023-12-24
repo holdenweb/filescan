@@ -30,12 +30,12 @@ class Connection:
             raise Connection.DoesNotExist()
 
 
-    def update_modified_hash_seen(self, id, modified, hash, seen=True):
+    def update_modified_hash_seen(self, id, modified, checksum, seen=True):
         curs = self.conn.execute('''
         UPDATE location \
         SET modified=?, checksum=?, seen=? \
                 WHERE id=?''',
-                (modified, hash, seen, id))
+                (modified, checksum, seen, id))
 
     def update_seen(self, id):
         curs = self.conn.execute('''
@@ -43,11 +43,11 @@ class Connection:
                 WHERE id=?''',
                 (id, ))
 
-    def db_insert_location(self, file_path, dir_path, disk_modified, hash):
+    def db_insert_location(self, file_path, dir_path, disk_modified, checksum):
         self.conn.execute('''
         INSERT INTO location (filename, dirpath, modified, checksum, seen)
         VALUES (?, ?, ?, ?, TRUE)''',
-        (file_path, dir_path, disk_modified, hash))
+        (file_path, dir_path, disk_modified, checksum))
 
     def all_file_count(self):
         curs = self.conn.execute("SELECT count(*) FROM location")

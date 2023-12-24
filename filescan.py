@@ -43,15 +43,16 @@ def scan_directory(base_dir, conn):
             size = stat.st_size
             try:
                 loc = conn.location_for(dir_path, filename)
-                id, hash, seen = loc.id, loc.checksum, loc.seen
+                id, checksum, seen = loc.id, loc.checksum, loc.seen
                 known_files += 1
                 if disk_modified != loc.modified:  # Changed since last scan
                     updated_files += 1
-                    hash = hashlib.sha256(
+                    checksum = hashlib.sha256(
                         open(current_file_path, "rb").read()
                     ).hexdigest()
+                    hash = conn.hash_for(checksum)
                     loc = conn.update_details(loc, disk_modified, hash, size)
-                    scan_tokens(conn, current_file_path, hash)
+                    scan_tokens(conn, current_file_path, checksum)
                     debug("*UPDATED*", current_file_path)
                     conn.archive_record("UPDATED", 'location', loc)
                 else:
@@ -60,13 +61,14 @@ def scan_directory(base_dir, conn):
             except conn.DoesNotExist:  # New file
                 new_files += 1
                 try:
-                    hash = hashlib.sha256(
+                    checksum = hashlib.sha256(
                         open(current_file_path, "rb").read()
                     ).hexdigest()
-                    scan_tokens(conn, current_file_path, hash)
+                    scan_tokens(conn, current_file_path, checksum)
                 except FileNotFoundError:
-                    hash = "UNHASHABLE"
-                loc = conn.db_insert_location(dir_path, filename, disk_modified, hash, size)
+                    checksum = "UNHASHABLE"
+                cs = conn.hash_for(checksum)
+                loc = conn.db_insert_location(dir_path, filename, disk_modified, cs, size)
                 debug("*CREATED*", current_file_path)
                 conn.archive_record("CREATED", 'location', loc)
             conn.commit()
@@ -122,4 +124,4 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         sys.exit("Nothing to do!")
 
-    main(storage="sqlalchemy", database="sa", create=False)
+    main(storage="sqlalchemy", database="he", create=False)

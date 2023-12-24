@@ -2,7 +2,7 @@
 
 import pytest
 
-from sqlalchemy_store import Model, Location, TokenPos, RunLog, Archive, Connection
+from sqlalchemy_store import Model, Location, TokenPos, RunLog, Archive, Connection, Checksum
 from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import Session
 
@@ -28,12 +28,13 @@ def verify_empty(session):
 def test_structure(session):
     verify_empty(session)
     with session.begin_nested() as test_session:
+        cs = Checksum(checksum="---- Exciting ----")
         session.add(
             Location(
                 filename='nosuch.py',
                 dirpath='/Users/sholden/',
                 modified=3.14159,
-                checksum='c78fbae7bc8707342384586fc1a21e23a410bd8bf7bd8519c9dfa41149ca2070',
+                checksum=cs,
                 seen=False,
                 filesize=1024
             )
@@ -54,12 +55,13 @@ def test_seen_bits(connection, session):
         q = select(func.count(Location.id))
         assert session.scalar(q) == 0
         for i in range(20):
+            cs = Checksum(checksum="---- INTERESTING ----")
             session.add(
                 Location(
                     filename=f"file{i:02d}.tst",
                     dirpath=PREFIX,
                     modified=3.14159,
-                    checksum='---- FICTITIOUS ----',
+                    checksum=cs,
                     seen=(i % 2 == 0),
                     filesize=1024*i
                 )
@@ -83,7 +85,9 @@ def test_seen_bits(connection, session):
 
 def test_archive(connection, session):
     verify_empty(session)
-    loc = Location(filename="test.txt", dirpath="/nosuch/directory/", modified=115678.0, checksum="---- TOTALLY BOGUS ----", seen=True, filesize=1025)
+    cs = Checksum(checksum="Completely Bogus")
+    loc = Location(filename="test.txt", dirpath="/nosuch/directory/", modified=115678.0, checksum=cs, seen=True, filesize=1025)
+    session.add(loc)
     with session.begin_nested() as test_session:
         connection.archive_record("DELETED", "location", loc)
         assert session.scalar(func.count(Archive.id)) == 0

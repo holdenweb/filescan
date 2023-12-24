@@ -15,7 +15,7 @@ class Connection:
         if create:
             self.curs.execute("DROP TABLE IF EXISTS tokenpos")
             self.curs.execute(
-                "CREATE TABLE tokenpos (id SERIAL PRIMARY KEY, hash CHAR(64), name VARCHAR, line INTEGER, pos INTEGER)"
+                "CREATE TABLE tokenpos (id SERIAL PRIMARY KEY, checksum CHAR(64), name VARCHAR, line INTEGER, pos INTEGER)"
             )
             self.curs.execute("DROP TABLE IF EXISTS location")
             self.curs.execute(
@@ -51,14 +51,14 @@ class Connection:
     def commit(self):
         return self.conn.commit()
 
-    def hash_exists(self, hash):
-        self.curs.execute("SELECT id FROM tokenpos WHERE hash = %s LIMIT 1", (hash,))
+    def hash_for(self, checksum):
+        self.curs.execute("SELECT id FROM tokenpos WHERE checksum = %s LIMIT 1", (checksum,))
         return len(self.curs.fetchall()) > 0
 
-    def save_reference(self, hash, name, line, pos):
+    def save_reference(self, checksum, name, line, pos):
         self.curs.execute(
-            "INSERT INTO tokenpos (hash, name, line, pos) VALUES(%s, %s, %s, %s)",
-            (hash, name, line, pos),
+            "INSERT INTO tokenpos (checksum, name, line, pos) VALUES(%s, %s, %s, %s)",
+            (checksum, name, line, pos),
         )
 
     def clear_seen_bits(self, prefix):
@@ -79,13 +79,13 @@ class Connection:
         else:
             raise Connection.DoesNotExist()
 
-    def update_details(self, id, modified, hash, seen=True):
+    def update_details(self, id, modified, checksum, seen=True):
         self.curs.execute(
             """
         UPDATE location \
         SET modified=%s, checksum=%s, seen=%s \
                 WHERE id=%s""",
-            (modified, hash, seen, id),
+            (modified, checksum, seen, id),
         )
 
     def update_seen(self, id):
@@ -96,12 +96,12 @@ class Connection:
             (id,),
         )
 
-    def db_insert_location(self, file_path, dir_path, disk_modified, hash, size):
+    def db_insert_location(self, file_path, dir_path, disk_modified, checksum, size):
         self.curs.execute(
             """
         INSERT INTO location (filename, dirpath, modified, checksum, seen, filesize)
         VALUES (%s, %s, %s, %s, TRUE, %s)""",
-            (file_path, dir_path, disk_modified, hash, size),
+            (file_path, dir_path, disk_modified, checksum, size),
         )
 
     def all_file_count(self, prefix):

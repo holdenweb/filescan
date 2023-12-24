@@ -5,13 +5,13 @@ class FileRecord(mongoengine.Document):
     filename = mongoengine.StringField()
     dirpath = mongoengine.StringField()
     modified = mongoengine.FloatField()
-    hash = mongoengine.StringField()
+    checksum = mongoengine.StringField()
     seen = mongoengine.BooleanField()
     filesize = mongoengine.IntField()
 
 
 class TokenPos(mongoengine.Document):
-    hash = mongoengine.StringField()
+    checksum = mongoengine.StringField()
     name = mongoengine.StringField()
     line = mongoengine.IntField()
     pos = mongoengine.IntField()
@@ -36,33 +36,33 @@ class Connection:
     def clear_seen_bits(self, prefix):
         self.document_class.objects(dirpath__startswith=prefix).update(seen=False)
 
-    def hash_exists(self, hash):
-        return len(FileRecord.objects(hash=hash)[:1]) == 1
+    def hash_for(self, checksum):
+        return len(FileRecord.objects(checksum=checksum)[:1]) == 1
 
-    def save_reference(self, hash, name, line, pos):
-        TokenPos(hash=hash, name=name, line=line, pos=pos).save()
+    def save_reference(self, checksum, name, line, pos):
+        TokenPos(checksum=checksum, name=name, line=line, pos=pos).save()
 
     def location_for(self, dir_path, file_path):
-        fieldnames = ["id", "modified", "hash", "seen"]
+        fieldnames = ["id", "modified", "checksum", "seen"]
         result = self.document_class.objects.only(*fieldnames).get(
             dirpath=dir_path, filename=file_path
         )
         return tuple(getattr(result, fld) for fld in fieldnames)
 
-    def update_details(self, id, modified, hash, seen=True):
+    def update_details(self, id, modified, checksum, seen=True):
         return self.document_class.objects(pk=id).update(
-            modified=modified, hash=hash, seen=seen
+            modified=modified, checksum=checksum, seen=seen
         )
 
     def update_seen(self, id):
         self.document_class.objects(pk=id).update(seen=True)
 
-    def db_insert_location(self, file_path, dirpath, modified, hash):
+    def db_insert_location(self, file_path, dirpath, modified, checksum):
         rec = self.document_class(
             filename=file_path,
             dirpath=dirpath,
             modified=modified,
-            hash=hash,
+            checksum=checksum,
             seen=True,
         )
         rec.save()

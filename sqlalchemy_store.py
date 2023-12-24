@@ -1,3 +1,16 @@
+import logging
+import sys
+
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+root.addHandler(handler)
+
+
 from datetime import datetime
 
 from sqlalchemy import (
@@ -11,11 +24,11 @@ from sqlalchemy import (
     select,
     exists,
     func,
-    JSON,
+    ForeignKey,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, relationship
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.exc import NoResultFound
+from sqlalchemy.exc import NoResultFound, ArgumentError
 from sqlalchemy_serializer import SerializerMixin
 from dotenv import load_dotenv
 
@@ -25,37 +38,48 @@ DB_URL_FMT = "postgresql+psycopg2://localhost:5432/{}"
 class Model(DeclarativeBase):
     metadata = MetaData(
         naming_convention={
-            "ix": "ix_%column_0_label)s",
+            "ix": "ix_%(column_0_label)s",
             "uq": "uq_%(table_name)s_%(column_0_name)s",
             "ck": "ck_%(table_name)s_%(constraint_name)s",
             "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-            "pk": "pk_%(table_name)s`",
+            "pk": "pk_%(table_name)s",
         }
     )
 
 
+class Checksum(Model, SerializerMixin):
+    __tablename__ = "checksum_tbl"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    checksum: Mapped[str] = mapped_column(String())
+    locations: Mapped[list['Location']] = relationship(back_populates='checksum')
+    tokens: Mapped[list['TokenPos']] = relationship(back_populates='checksum')
+    serialize_rules = ('-locations.checksum', '-tokens.checksum')
+
+
 class Location(Model, SerializerMixin):
-    __tablename__ = "location"
+    __tablename__ = "location_tbl"
     id: Mapped[int] = mapped_column(primary_key=True)
     filename: Mapped[str] = mapped_column(String())
     dirpath: Mapped[str] = mapped_column(String())
     modified: Mapped[float] = mapped_column(Float())
-    checksum: Mapped[str] = mapped_column(String())
+    checksum_id: Mapped[int] = mapped_column(ForeignKey('checksum_tbl.id'), index=True)
+    checksum: Mapped[Checksum] = relationship('Checksum', back_populates='locations')
     seen: Mapped[bool] = mapped_column(Boolean())
     filesize: Mapped[int]
-
+    serialize_rules = ('-checksum.locations', )
 
 class TokenPos(Model, SerializerMixin):
-    __tablename__ = 'tokenpos'
+    __tablename__ = 'tokenpos_tbl'
     id: Mapped[int] = mapped_column(primary_key=True)
-    hash: Mapped[str] = mapped_column(String(64))
+    checksum_id: Mapped[int] = mapped_column(ForeignKey('checksum_tbl.id'), index=True)
+    checksum: Mapped[Checksum] = relationship('Checksum', back_populates="tokens")
     name: Mapped[str] = mapped_column(String())
     line: Mapped[int]
     pos: Mapped[int]
-
+    serialize_rules = ('-checksum.tokens', )
 
 class RunLog(Model, SerializerMixin):
-    __tablename__ = "runlog"
+    __tablename__ = "runlog_tbl"
     id: Mapped[int] = mapped_column(primary_key=True)
     when_run: Mapped[datetime] = mapped_column(DateTime)
     rootdir: Mapped[str]
@@ -68,7 +92,7 @@ class RunLog(Model, SerializerMixin):
 
 
 class Archive(Model):
-    __tablename__ = 'archive'
+    __tablename__ = 'archive_tbl'
     id: Mapped[int] = mapped_column(primary_key=True)
     reason: Mapped[str] = mapped_column(String())
     rectype: Mapped[str] = mapped_column(String())
@@ -98,34 +122,34 @@ class Connection:
     def archive_record(self, reason, rectype, record):
         archive = Archive(reason=reason, rectype=rectype, data=record.to_dict())
         self.session.add(archive)
+
     def clear_seen_bits(self, prefix):
         q = update(Location).where(Location.dirpath.like(f"{prefix}%")).values(seen=False)
         return self.session.execute(q)
 
     def create_db(self):
         raise NotImplementedError("Sorry, Dave, I'm afraid I can't do that.")
-        m_conn = psycopg2.connect(dbname="postgres")
-        m_conn.autocommit = True
-        m_curs = m_conn.cursor()
-        m_curs.execute(f"DROP DATABASE IF EXISTS {self.dbname}")
-        m_curs.execute(f"CREATE DATABASE {self.dbname}")
-        m_conn.close()
 
     def commit(self):
          return self.session.commit()
 
-    def db_insert_location(self, dirpath, filename, disk_modified, hash, size):
-        loc = Location(dirpath=dirpath, filename=filename, modified=disk_modified, checksum=hash, filesize=size, seen=True)
+    def db_insert_location(self, dirpath, filename, disk_modified, checksum: Checksum, size):
+        loc = Location(dirpath=dirpath, filename=filename, modified=disk_modified, checksum=checksum, filesize=size, seen=True)
         #print(f"Added {dirpath}{filename}")
         self.session.add(loc)
         return loc
 
-    def hash_exists(self, hash):
-        q = select(exists().where(Location.checksum == hash))
-        return self.session.scalar(q)
+    def hash_for(self, checksum: str) -> bool:
+        try:
+            q = select(Checksum).where(Checksum.checksum == checksum)
+            cs = self.session.scalars(q).one()
+        except NoResultFound:
+            cs = Checksum(checksum=checksum)
+            self.session.add(cs)
+        return cs
 
-    def save_reference(self, hash, name, line, pos):
-        t = TokenPos(hash=hash, name=name, line=line, pos=pos)
+    def save_reference(self, checksum, name, line, pos):
+        t = TokenPos(checksum=checksum, name=name, line=line, pos=pos)
         self.session.add(t)
 
     def location_for(self, dirpath, filename):
@@ -152,9 +176,9 @@ class Connection:
         run = RunLog(when_run=when, rootdir=rootdir, files=files, known=known, updated=updated, unchanged=unchanged, new_files=new_files, deleted=deleted)
         self.session.add(run)
 
-    def update_details(self, loc, modified, hash, size, seen=True):
+    def update_details(self, loc, modified, checksum, size, seen=True):
         loc.modified = modified
-        loc.checksum = hash
+        loc.checksum = checksum
         loc.filesize = size
         loc.seen = seen
         self.session.add(loc)
