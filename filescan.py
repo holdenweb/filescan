@@ -5,7 +5,8 @@ import sys
 
 from datetime import datetime
 
-from load_tokens import scan_tokens
+import sqlalchemy_store as store
+from sqlalchemy_store import Checksum, Connection
 
 DEBUG = False  # Think _hard_ before enabling DEBUG
 
@@ -15,15 +16,15 @@ def debug(*args, **kwargs):
         print(*args, **kwargs)
 
 
-def scan_directory(base_dir, conn):
-    started = datetime.now()
+def scan_directory(base_dir: str, conn: Connection):
+    started: datetime = datetime.now()
     file_count = known_files = updated_files = unchanged_files = new_files = deleted_files = 0
     base_dir = os.path.abspath(base_dir)
     if not base_dir.endswith("/"):
         base_dir += "/"
     conn.clear_seen_bits(base_dir)
 
-    for dir_path, dirnames, filenames in os.walk(base_dir):
+    for dirpath, dirnames, filenames in os.walk(base_dir):
         for ignore_dir in [
             "__pycache__",
             "site-packages",
@@ -33,26 +34,22 @@ def scan_directory(base_dir, conn):
         ]:
             if ignore_dir in dirnames:
                 dirnames.remove(ignore_dir)
-        if not dir_path.endswith("/"):
-            dir_path = f"{dir_path}/"
+        if not dirpath.endswith('/'):
+            dirpath = f"{dirpath}/"
         for filename in filenames:
             file_count += 1
-            current_file_path = os.path.join(dir_path, filename)
+            current_file_path = os.path.join(dirpath, filename)
             stat = os.stat(current_file_path, follow_symlinks=False)
             disk_modified = stat.st_mtime
             size = stat.st_size
-            try:
-                loc = conn.location_for(dir_path, filename)
+            try:  # Known file happy path
+                loc = conn.location_for(dirpath, filename)
                 id, checksum, seen = loc.id, loc.checksum, loc.seen
                 known_files += 1
                 if disk_modified != loc.modified:  # Changed since last scan
                     updated_files += 1
-                    checksum = hashlib.sha256(
-                        open(current_file_path, "rb").read()
-                    ).hexdigest()
-                    hash = conn.hash_for(checksum)
-                    loc = conn.update_details(loc, disk_modified, hash, size)
-                    scan_tokens(conn, current_file_path, checksum)
+                    cs = conn.register_hash(current_file_path)
+                    loc = conn.update_details(loc, disk_modified, cs, size)
                     debug("*UPDATED*", current_file_path)
                     conn.archive_record("UPDATED", 'location', loc)
                 else:
@@ -60,15 +57,8 @@ def scan_directory(base_dir, conn):
                     conn.update_seen(loc)
             except conn.DoesNotExist:  # New file
                 new_files += 1
-                try:
-                    checksum = hashlib.sha256(
-                        open(current_file_path, "rb").read()
-                    ).hexdigest()
-                    scan_tokens(conn, current_file_path, checksum)
-                except FileNotFoundError:
-                    checksum = "UNHASHABLE"
-                cs = conn.hash_for(checksum)
-                loc = conn.db_insert_location(dir_path, filename, disk_modified, cs, size)
+                cs = conn.register_hash(current_file_path)
+                loc = conn.db_insert_location(dirpath=dirpath, filename=filename, modified=disk_modified, checksum=cs, filesize=size)
                 debug("*CREATED*", current_file_path)
                 conn.archive_record("CREATED", 'location', loc)
             conn.commit()
@@ -111,8 +101,6 @@ def main(
     create=False,
 ):
 
-    store_name = f"{storage}_store"
-    store = importlib.import_module(store_name)
     conn = store.Connection(database, create=create)
 
     for base_dir in args:
@@ -124,4 +112,4 @@ if __name__ == "__main__":
     if len(sys.argv) == 1:
         sys.exit("Nothing to do!")
 
-    main(storage="sqlalchemy", database="he", create=False)
+    main(storage="sqlalchemy", database="db1", create=False)

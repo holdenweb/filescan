@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 DB_URL_FMT = "postgresql+psycopg2://localhost:5432/{}"
 PREFIX = "/Users/sholden/"
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def connection():
     conn = Connection("test", create=True)
     yield conn
@@ -89,5 +89,17 @@ def test_archive(connection, session):
     loc = Location(filename="test.txt", dirpath="/nosuch/directory/", modified=115678.0, checksum=cs, seen=True, filesize=1025)
     session.add(loc)
     with session.begin_nested() as test_session:
-        connection.archive_record("DELETED", "location", loc)
+        connection.archive_record("TESTING", "location", loc)
         assert session.scalar(func.count(Archive.id)) == 0
+        test_session.commit()
+    assert session.scalar(func.count(Archive.id)) == 1
+
+def test_register_hash(connection, session):
+    verify_empty(session)
+    with session.begin_nested() as test_session:
+        cs = connection.register_hash("BOGUS BOGUS BOGUS")
+        test_session.commit()
+    assert session.scalar(func.count(Checksum.id)) == 1
+    assert isinstance(cs, Checksum)
+
+

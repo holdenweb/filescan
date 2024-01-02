@@ -1,5 +1,10 @@
+import hashlib
+import keyword as kw
 import logging
 import sys
+import token
+
+from tokenize import tokenize
 
 root = logging.getLogger()
 root.setLevel(logging.DEBUG)
@@ -48,7 +53,7 @@ class Model(DeclarativeBase):
 
 
 class Checksum(Model, SerializerMixin):
-    __tablename__ = "checksum_tbl"
+    __tablename__ = "checksum"
     id: Mapped[int] = mapped_column(primary_key=True)
     checksum: Mapped[str] = mapped_column(String())
     locations: Mapped[list['Location']] = relationship(back_populates='checksum')
@@ -57,21 +62,21 @@ class Checksum(Model, SerializerMixin):
 
 
 class Location(Model, SerializerMixin):
-    __tablename__ = "location_tbl"
+    __tablename__ = "location"
     id: Mapped[int] = mapped_column(primary_key=True)
     filename: Mapped[str] = mapped_column(String())
     dirpath: Mapped[str] = mapped_column(String())
     modified: Mapped[float] = mapped_column(Float())
-    checksum_id: Mapped[int] = mapped_column(ForeignKey('checksum_tbl.id'), index=True)
+    checksum_id: Mapped[int] = mapped_column(ForeignKey('checksum.id'), index=True)
     checksum: Mapped[Checksum] = relationship('Checksum', back_populates='locations')
     seen: Mapped[bool] = mapped_column(Boolean())
     filesize: Mapped[int]
     serialize_rules = ('-checksum.locations', )
 
 class TokenPos(Model, SerializerMixin):
-    __tablename__ = 'tokenpos_tbl'
+    __tablename__ = 'tokenpos'
     id: Mapped[int] = mapped_column(primary_key=True)
-    checksum_id: Mapped[int] = mapped_column(ForeignKey('checksum_tbl.id'), index=True)
+    checksum_id: Mapped[int] = mapped_column(ForeignKey('checksum.id'), index=True)
     checksum: Mapped[Checksum] = relationship('Checksum', back_populates="tokens")
     name: Mapped[str] = mapped_column(String())
     line: Mapped[int]
@@ -79,7 +84,7 @@ class TokenPos(Model, SerializerMixin):
     serialize_rules = ('-checksum.tokens', )
 
 class RunLog(Model, SerializerMixin):
-    __tablename__ = "runlog_tbl"
+    __tablename__ = "runlog"
     id: Mapped[int] = mapped_column(primary_key=True)
     when_run: Mapped[datetime] = mapped_column(DateTime)
     rootdir: Mapped[str]
@@ -92,7 +97,7 @@ class RunLog(Model, SerializerMixin):
 
 
 class Archive(Model):
-    __tablename__ = 'archive_tbl'
+    __tablename__ = 'archive'
     id: Mapped[int] = mapped_column(primary_key=True)
     reason: Mapped[str] = mapped_column(String())
     rectype: Mapped[str] = mapped_column(String())
@@ -133,26 +138,31 @@ class Connection:
     def commit(self):
          return self.session.commit()
 
-    def db_insert_location(self, dirpath, filename, disk_modified, checksum: Checksum, size):
-        loc = Location(dirpath=dirpath, filename=filename, modified=disk_modified, checksum=checksum, filesize=size, seen=True)
+    def db_insert_location(self, dirpath, filename, modified, checksum: Checksum, filesize: int):
+        loc = Location(dirpath=dirpath, filename=filename, modified=modified, checksum=checksum, filesize=filesize, seen=True)
         #print(f"Added {dirpath}{filename}")
         self.session.add(loc)
         return loc
 
-    def hash_for(self, checksum: str) -> bool:
+    def register_hash(self, file_path):
         try:
-            q = select(Checksum).where(Checksum.checksum == checksum)
-            cs = self.session.scalars(q).one()
-        except NoResultFound:
-            cs = Checksum(checksum=checksum)
+            new_file = open(file_path, "rb")
+            hash = hashlib.file_digest(new_file, 'sha256').hexdigest()
+        except FileNotFoundError:
+            hash = "++ FILE NOT FOUND ++"
+        cs = self.session.query(Checksum).filter_by(checksum=hash).first()
+        if cs is None:
+            cs = Checksum(checksum=hash)
             self.session.add(cs)
+            self.scan_tokens(file_path, cs)
         return cs
 
-    def save_reference(self, checksum, name, line, pos):
+    def save_reference(self, checksum: Checksum, name: str, line: int, pos: int) -> TokenPos:
         t = TokenPos(checksum=checksum, name=name, line=line, pos=pos)
         self.session.add(t)
+        return t
 
-    def location_for(self, dirpath, filename):
+    def location_for(self, dirpath: str, filename: str):
         try:
             q = select(
                 Location
@@ -176,7 +186,7 @@ class Connection:
         run = RunLog(when_run=when, rootdir=rootdir, files=files, known=known, updated=updated, unchanged=unchanged, new_files=new_files, deleted=deleted)
         self.session.add(run)
 
-    def update_details(self, loc, modified, checksum, size, seen=True):
+    def update_details(self, loc: Location, modified: float, checksum: Checksum, size, seen: bool=True):
         loc.modified = modified
         loc.checksum = checksum
         loc.filesize = size
@@ -201,4 +211,27 @@ class Connection:
         q = select(Location).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
         for r in self.session.scalars(q):
             self.session.delete(r)
+
+    def scan_tokens(self, filepath, checksum: Checksum):
+        """
+        Add the non-keyword tokens to the position index for this file.
+        Only called when no checksum previously existed for the file's
+        current incarnation - otherwise we assume scanning took place
+        when the original checksum was created.
+        XXX The above assumption fails when the first incarnation of a
+            Python source file doesn't have the ".py" extension. Hmmm.
+            Maybe one solution is an explicit test for the existence of
+            at least one TokenPos for a given checksum, but even this
+            would cause repeated parsing of files containing no names.
+        """
+        if not filepath.endswith(".py"):
+            return
+        with open(filepath, "rb") as inf:
+            try:
+                for t in tokenize(inf.readline):
+                    if t.type == token.NAME and not kw.iskeyword(t.string):
+                        self.save_reference(checksum, t.string, t.start[0], t.start[1])
+            except Exception as e:
+                print(f"** {filepath}: {type(e)}\n   {e}")  # XXX: sensible handling of parse and other errors
+
 
