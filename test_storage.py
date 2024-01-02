@@ -2,12 +2,21 @@
 
 import pytest
 
-from sqlalchemy_store import Model, Location, TokenPos, RunLog, Archive, Connection, Checksum
+from sqlalchemy_store import (
+    Model,
+    Location,
+    TokenPos,
+    RunLog,
+    Archive,
+    Connection,
+    Checksum,
+)
 from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import Session
 
 DB_URL_FMT = "postgresql+psycopg2://localhost:5432/{}"
 PREFIX = "/Users/sholden/"
+
 
 @pytest.fixture(scope="function")
 def connection():
@@ -15,15 +24,18 @@ def connection():
     yield conn
     conn.engine.dispose()
 
-@pytest.fixture(scope='function')
+
+@pytest.fixture(scope="function")
 def session(connection):
     with connection.session.begin():
         yield connection.session
     connection.session.rollback()
 
+
 def verify_empty(session):
     for record_type in (Location, TokenPos, RunLog, Archive):
         assert session.scalar(func.count(record_type.id)) == 0
+
 
 def test_structure(session):
     verify_empty(session)
@@ -31,12 +43,12 @@ def test_structure(session):
         cs = Checksum(checksum="---- Exciting ----")
         session.add(
             Location(
-                filename='nosuch.py',
-                dirpath='/Users/sholden/',
+                filename="nosuch.py",
+                dirpath="/Users/sholden/",
                 modified=3.14159,
                 checksum=cs,
                 seen=False,
-                filesize=1024
+                filesize=1024,
             )
         )
         test_session.commit()
@@ -48,6 +60,7 @@ def test_structure(session):
         q = select(func.count(Location.id))
         assert session.scalar(q) == 0
     session.rollback()
+
 
 def test_seen_bits(connection, session):
     verify_empty(session)
@@ -63,7 +76,7 @@ def test_seen_bits(connection, session):
                     modified=3.14159,
                     checksum=cs,
                     seen=(i % 2 == 0),
-                    filesize=1024*i
+                    filesize=1024 * i,
                 )
             )
         test_session.commit()
@@ -83,16 +96,25 @@ def test_seen_bits(connection, session):
         assert connection.unseen_location_count(PREFIX) == 10
         session.rollback()
 
+
 def test_archive(connection, session):
     verify_empty(session)
     cs = Checksum(checksum="Completely Bogus")
-    loc = Location(filename="test.txt", dirpath="/nosuch/directory/", modified=115678.0, checksum=cs, seen=True, filesize=1025)
+    loc = Location(
+        filename="test.txt",
+        dirpath="/nosuch/directory/",
+        modified=115678.0,
+        checksum=cs,
+        seen=True,
+        filesize=1025,
+    )
     session.add(loc)
     with session.begin_nested() as test_session:
         connection.archive_record("TESTING", "location", loc)
         assert session.scalar(func.count(Archive.id)) == 0
         test_session.commit()
     assert session.scalar(func.count(Archive.id)) == 1
+
 
 def test_register_hash(connection, session):
     verify_empty(session)
@@ -101,5 +123,3 @@ def test_register_hash(connection, session):
         test_session.commit()
     assert session.scalar(func.count(Checksum.id)) == 1
     assert isinstance(cs, Checksum)
-
-
