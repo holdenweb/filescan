@@ -1,5 +1,6 @@
-import psycopg2
 from datetime import datetime
+
+import psycopg2
 
 
 class Connection:
@@ -52,7 +53,9 @@ class Connection:
         return self.conn.commit()
 
     def hash_for(self, checksum):
-        self.curs.execute("SELECT id FROM tokenpos WHERE checksum = %s LIMIT 1", (checksum,))
+        self.curs.execute(
+            "SELECT id FROM tokenpos WHERE checksum = %s LIMIT 1", (checksum,)
+        )
         return len(self.curs.fetchall()) > 0
 
     def save_reference(self, checksum, name, line, pos):
@@ -105,19 +108,30 @@ class Connection:
         )
 
     def all_file_count(self, prefix):
-        self.curs.execute("SELECT count(*) FROM location WHERE dirpath LIKE %s", (f"{prefix}%", ))
+        self.curs.execute(
+            "SELECT count(*) FROM location WHERE dirpath LIKE %s", (f"{prefix}%",)
+        )
         return self.curs.fetchone()[0]
 
     def unseen_location_count(self, prefix):
-        self.curs.execute("""SELECT count(*) FROM location WHERE NOT seen AND dirpath LIKE %s""", (f"{prefix}%", ))
+        self.curs.execute(
+            """SELECT count(*) FROM location WHERE NOT seen AND dirpath LIKE %s""",
+            (f"{prefix}%",),
+        )
         return self.curs.fetchone()[0]
 
     def dir_files_not_seen(self, prefix):
-        self.curs.execute("""SELECT dirpath, filename FROM location WHERE dirpath LIKE %s AND NOT seen""", (f"{prefix}%", ))
+        self.curs.execute(
+            """SELECT dirpath, filename FROM location WHERE dirpath LIKE %s AND NOT seen""",
+            (f"{prefix}%",),
+        )
         return self.curs.fetchmany()
 
     def delete_unseen_locations(self, prefix):
-        self.curs.execute("""DELETE from location WHERE NOT seen AND dirpath LIKE %s""", (f"{prefix}%", ))
+        self.curs.execute(
+            """DELETE from location WHERE NOT seen AND dirpath LIKE %s""",
+            (f"{prefix}%",),
+        )
 
     def record_run(
         self,

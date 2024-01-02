@@ -3,7 +3,6 @@ import keyword as kw
 import logging
 import sys
 import token
-
 from tokenize import tokenize
 
 root = logging.getLogger()
@@ -11,31 +10,37 @@ root.setLevel(logging.DEBUG)
 
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 root.addHandler(handler)
 
 
 from datetime import datetime
 
+from dotenv import load_dotenv
 from sqlalchemy import (
-    create_engine,
-    MetaData,
-    String,
-    Float,
     Boolean,
     DateTime,
-    update,
-    select,
+    Float,
+    ForeignKey,
+    MetaData,
+    String,
+    create_engine,
     exists,
     func,
-    ForeignKey,
+    select,
+    update,
 )
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker, relationship
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.exc import NoResultFound, ArgumentError
+from sqlalchemy.exc import ArgumentError, NoResultFound
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    sessionmaker,
+)
 from sqlalchemy_serializer import SerializerMixin
-from dotenv import load_dotenv
 
 DB_URL_FMT = "postgresql+psycopg2://localhost:5432/{}"
 
@@ -56,9 +61,9 @@ class Checksum(Model, SerializerMixin):
     __tablename__ = "checksum"
     id: Mapped[int] = mapped_column(primary_key=True)
     checksum: Mapped[str] = mapped_column(String())
-    locations: Mapped[list['Location']] = relationship(back_populates='checksum')
-    tokens: Mapped[list['TokenPos']] = relationship(back_populates='checksum')
-    serialize_rules = ('-locations.checksum', '-tokens.checksum')
+    locations: Mapped[list["Location"]] = relationship(back_populates="checksum")
+    tokens: Mapped[list["TokenPos"]] = relationship(back_populates="checksum")
+    serialize_rules = ("-locations.checksum", "-tokens.checksum")
 
 
 class Location(Model, SerializerMixin):
@@ -67,21 +72,23 @@ class Location(Model, SerializerMixin):
     filename: Mapped[str] = mapped_column(String())
     dirpath: Mapped[str] = mapped_column(String())
     modified: Mapped[float] = mapped_column(Float())
-    checksum_id: Mapped[int] = mapped_column(ForeignKey('checksum.id'), index=True)
-    checksum: Mapped[Checksum] = relationship('Checksum', back_populates='locations')
+    checksum_id: Mapped[int] = mapped_column(ForeignKey("checksum.id"), index=True)
+    checksum: Mapped[Checksum] = relationship("Checksum", back_populates="locations")
     seen: Mapped[bool] = mapped_column(Boolean())
     filesize: Mapped[int]
-    serialize_rules = ('-checksum.locations', )
+    serialize_rules = ("-checksum.locations",)
+
 
 class TokenPos(Model, SerializerMixin):
-    __tablename__ = 'tokenpos'
+    __tablename__ = "tokenpos"
     id: Mapped[int] = mapped_column(primary_key=True)
-    checksum_id: Mapped[int] = mapped_column(ForeignKey('checksum.id'), index=True)
-    checksum: Mapped[Checksum] = relationship('Checksum', back_populates="tokens")
+    checksum_id: Mapped[int] = mapped_column(ForeignKey("checksum.id"), index=True)
+    checksum: Mapped[Checksum] = relationship("Checksum", back_populates="tokens")
     name: Mapped[str] = mapped_column(String())
     line: Mapped[int]
     pos: Mapped[int]
-    serialize_rules = ('-checksum.tokens', )
+    serialize_rules = ("-checksum.tokens",)
+
 
 class RunLog(Model, SerializerMixin):
     __tablename__ = "runlog"
@@ -97,7 +104,7 @@ class RunLog(Model, SerializerMixin):
 
 
 class Archive(Model):
-    __tablename__ = 'archive'
+    __tablename__ = "archive"
     id: Mapped[int] = mapped_column(primary_key=True)
     reason: Mapped[str] = mapped_column(String())
     rectype: Mapped[str] = mapped_column(String())
@@ -105,7 +112,6 @@ class Archive(Model):
 
 
 class Connection:
-
     class DoesNotExist(Exception):
         ...
 
@@ -129,25 +135,38 @@ class Connection:
         self.session.add(archive)
 
     def clear_seen_bits(self, prefix):
-        q = update(Location).where(Location.dirpath.like(f"{prefix}%")).values(seen=False)
+        q = (
+            update(Location)
+            .where(Location.dirpath.like(f"{prefix}%"))
+            .values(seen=False)
+        )
         return self.session.execute(q)
 
     def create_db(self):
         raise NotImplementedError("Sorry, Dave, I'm afraid I can't do that.")
 
     def commit(self):
-         return self.session.commit()
+        return self.session.commit()
 
-    def db_insert_location(self, dirpath, filename, modified, checksum: Checksum, filesize: int):
-        loc = Location(dirpath=dirpath, filename=filename, modified=modified, checksum=checksum, filesize=filesize, seen=True)
-        #print(f"Added {dirpath}{filename}")
+    def db_insert_location(
+        self, dirpath, filename, modified, checksum: Checksum, filesize: int
+    ):
+        loc = Location(
+            dirpath=dirpath,
+            filename=filename,
+            modified=modified,
+            checksum=checksum,
+            filesize=filesize,
+            seen=True,
+        )
+        # print(f"Added {dirpath}{filename}")
         self.session.add(loc)
         return loc
 
     def register_hash(self, file_path):
         try:
             new_file = open(file_path, "rb")
-            hash = hashlib.file_digest(new_file, 'sha256').hexdigest()
+            hash = hashlib.file_digest(new_file, "sha256").hexdigest()
         except FileNotFoundError:
             hash = "++ FILE NOT FOUND ++"
         cs = self.session.query(Checksum).filter_by(checksum=hash).first()
@@ -157,16 +176,18 @@ class Connection:
             self.scan_tokens(file_path, cs)
         return cs
 
-    def save_reference(self, checksum: Checksum, name: str, line: int, pos: int) -> TokenPos:
+    def save_reference(
+        self, checksum: Checksum, name: str, line: int, pos: int
+    ) -> TokenPos:
         t = TokenPos(checksum=checksum, name=name, line=line, pos=pos)
         self.session.add(t)
         return t
 
     def location_for(self, dirpath: str, filename: str):
         try:
-            q = select(
-                Location
-            ).where(Location.dirpath == dirpath, Location.filename == filename)
+            q = select(Location).where(
+                Location.dirpath == dirpath, Location.filename == filename
+            )
             result = self.session.scalars(q).one()
             return result
         except NoResultFound:
@@ -182,11 +203,27 @@ class Connection:
         unchanged: int,
         new_files: int,
         deleted: int,
-        ):
-        run = RunLog(when_run=when, rootdir=rootdir, files=files, known=known, updated=updated, unchanged=unchanged, new_files=new_files, deleted=deleted)
+    ):
+        run = RunLog(
+            when_run=when,
+            rootdir=rootdir,
+            files=files,
+            known=known,
+            updated=updated,
+            unchanged=unchanged,
+            new_files=new_files,
+            deleted=deleted,
+        )
         self.session.add(run)
 
-    def update_details(self, loc: Location, modified: float, checksum: Checksum, size, seen: bool=True):
+    def update_details(
+        self,
+        loc: Location,
+        modified: float,
+        checksum: Checksum,
+        size,
+        seen: bool = True,
+    ):
         loc.modified = modified
         loc.checksum = checksum
         loc.filesize = size
@@ -199,16 +236,22 @@ class Connection:
         self.session.add(loc)
 
     def unseen_location_count(self, prefix):
-        q = select(func.count(Location.id)).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
+        q = select(func.count(Location.id)).where(
+            Location.dirpath.like(f"{prefix}%"), Location.seen == False
+        )
         return self.session.scalars(q).one()
 
     def unseen_locations(self, prefix):
-        q = select(Location).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
+        q = select(Location).where(
+            Location.dirpath.like(f"{prefix}%"), Location.seen == False
+        )
         result = self.session.scalars(q)
         return result
 
     def delete_unseen_locations(self, prefix):
-        q = select(Location).where(Location.dirpath.like(f"{prefix}%"), Location.seen == False)
+        q = select(Location).where(
+            Location.dirpath.like(f"{prefix}%"), Location.seen == False
+        )
         for r in self.session.scalars(q):
             self.session.delete(r)
 
@@ -232,6 +275,6 @@ class Connection:
                     if t.type == token.NAME and not kw.iskeyword(t.string):
                         self.save_reference(checksum, t.string, t.start[0], t.start[1])
             except Exception as e:
-                print(f"** {filepath}: {type(e)}\n   {e}")  # XXX: sensible handling of parse and other errors
-
-
+                print(
+                    f"** {filepath}: {type(e)}\n   {e}"
+                )  # XXX: sensible handling of parse and other errors
