@@ -57,7 +57,7 @@ class Connection:
     def update_seen(self, id):
         self.document_class.objects(pk=id).update(seen=True)
 
-    def db_insert_location(self, file_path, dirpath, modified, checksum):
+    def insert_location(self, file_path, dirpath, modified, checksum):
         rec = self.document_class(
             filename=file_path,
             dirpath=dirpath,

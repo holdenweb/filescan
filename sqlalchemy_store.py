@@ -63,7 +63,7 @@ class Checksum(Model, SerializerMixin):
     checksum: Mapped[str] = mapped_column(String())
     locations: Mapped[list["Location"]] = relationship(back_populates="checksum")
     tokens: Mapped[list["TokenPos"]] = relationship(back_populates="checksum")
-    serialize_rules = ("-locations.checksum", "-tokens.checksum")
+    serialize_only = ("checksum",)
 
 
 class Location(Model, SerializerMixin):
@@ -76,7 +76,7 @@ class Location(Model, SerializerMixin):
     checksum: Mapped[Checksum] = relationship("Checksum", back_populates="locations")
     seen: Mapped[bool] = mapped_column(Boolean())
     filesize: Mapped[int]
-    serialize_rules = ("-checksum.locations",)
+    serialize_rules = ("-checksum_id", "checksum.checksum")
 
 
 class TokenPos(Model, SerializerMixin):
@@ -148,7 +148,7 @@ class Connection:
     def commit(self):
         return self.session.commit()
 
-    def db_insert_location(
+    def insert_location(
         self, dirpath, filename, modified, checksum: Checksum, filesize: int
     ):
         loc = Location(
@@ -167,8 +167,8 @@ class Connection:
         try:
             new_file = open(file_path, "rb")
             hash = hashlib.file_digest(new_file, "sha256").hexdigest()
-        except FileNotFoundError:
-            hash = "++ FILE NOT FOUND ++"
+        except FileNotFoundError as e:
+            hash = f"##HASH: {e}"
         cs = self.session.query(Checksum).filter_by(checksum=hash).first()
         if cs is None:
             cs = Checksum(checksum=hash)

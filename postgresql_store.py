@@ -99,7 +99,7 @@ class Connection:
             (id,),
         )
 
-    def db_insert_location(self, file_path, dir_path, disk_modified, checksum, size):
+    def insert_location(self, file_path, dir_path, disk_modified, checksum, size):
         self.curs.execute(
             """
         INSERT INTO location (filename, dirpath, modified, checksum, seen, filesize)

@@ -9,6 +9,14 @@ from sqlalchemy_store import Checksum, Connection
 
 DEBUG = False  # Think _hard_ before enabling DEBUG
 
+IGNORE_DIRS = {
+    "__pycache__",
+    "site-packages",
+    ".git",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+}
+
 
 def debug(*args, **kwargs):
     if DEBUG:
@@ -25,13 +33,7 @@ def scan_directory(base_dir: str, conn: Connection):
     conn.clear_seen_bits(base_dir)
 
     for dirpath, dirnames, filenames in os.walk(base_dir):
-        for ignore_dir in [
-            "__pycache__",
-            "site-packages",
-            ".git",
-            ".ipynb_checkpoints",
-            ".mypy_cache",
-        ]:
+        for ignore_dir in IGNORE_DIRS:
             if ignore_dir in dirnames:
                 dirnames.remove(ignore_dir)
         if not dirpath.endswith("/"):
@@ -58,7 +60,7 @@ def scan_directory(base_dir: str, conn: Connection):
             except conn.DoesNotExist:  # New file
                 new_files += 1
                 cs = conn.register_hash(current_file_path)
-                loc = conn.db_insert_location(
+                loc = conn.insert_location(
                     dirpath=dirpath,
                     filename=filename,
                     modified=disk_modified,

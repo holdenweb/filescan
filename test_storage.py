@@ -118,8 +118,37 @@ def test_archive(connection, session):
 
 def test_register_hash(connection, session):
     verify_empty(session)
+    # check creation adds a record
     with session.begin_nested() as test_session:
         cs = connection.register_hash("BOGUS BOGUS BOGUS")
         test_session.commit()
     assert session.scalar(func.count(Checksum.id)) == 1
     assert isinstance(cs, Checksum)
+    with session.begin_nested() as test_session:
+        cs = connection.register_hash("BOGUS BOGUS BOGUS")
+        test_session.commit()
+    assert session.scalar(func.count(Checksum.id)) == 1
+    assert isinstance(cs, Checksum)
+    with session.begin_nested() as test_session:
+        cs = connection.register_hash("different")
+        test_session.commit()
+    assert session.scalar(func.count(Checksum.id)) == 2
+    assert isinstance(cs, Checksum)
+
+
+def test_location_serialization(connection, session):
+    verify_empty(session)
+    with session.begin_nested() as test_session:
+        cs = connection.register_hash("TEST_HASH")
+        for name in ("one", "two", "three"):
+            connection.save_reference(checksum=cs, name=name, line=1, pos=1)
+        test_session.commit()
+        loc = connection.insert_location(
+            dirpath="/somwhere/over/the/rainbow",
+            filename="far_away.txt",
+            modified=1023.25,
+            checksum=cs,
+            filesize=999,
+        )
+    loc_dict = loc.to_dict()
+    assert list(loc_dict["checksum"].keys()) == ["checksum"]

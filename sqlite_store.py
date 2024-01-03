@@ -52,7 +52,7 @@ class Connection:
             (id,),
         )
 
-    def db_insert_location(self, file_path, dir_path, disk_modified, checksum):
+    def insert_location(self, file_path, dir_path, disk_modified, checksum):
         self.conn.execute(
             """
         INSERT INTO location (filename, dirpath, modified, checksum, seen)
