@@ -4,8 +4,7 @@ import os
 import sys
 from datetime import datetime
 
-import sqlalchemy_store as store
-from sqlalchemy_store import Checksum, Connection
+from .sqlalchemy_store import Checksum, Connection
 
 DEBUG = False  # Think _hard_ before enabling DEBUG
 
@@ -104,18 +103,17 @@ Total seen: {file_count:7,d}
 def main(
     args=sys.argv[1:],
     DEBUG=True,
-    storage="postgresql",
-    database="filescan",
+    storage="sqlalchemy",
+    database="db1",
     create=False,
 ):
-    conn = store.Connection(database, create=create)
+    if len(sys.argv) == 1:
+        sys.exit("Nothing to do!")
+    conn = Connection(database, create=create)
 
     for base_dir in args:
         scan_directory(base_dir, conn)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 1:
-        sys.exit("Nothing to do!")
-
-    main(storage="sqlalchemy", database="db1", create=False)
+    main()
