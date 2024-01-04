@@ -23,6 +23,7 @@ mypy = "^1.7.1"
 types-psycopg2 = "^2.9.21.20"
 mongoengine-stubs = "^0.24.0"
 sqlalchemy-serializer = "^1.4.1"
+alembic = "^1.13.1"
 
 
 [tool.poetry.group.test.dependencies]
