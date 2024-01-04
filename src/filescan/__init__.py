@@ -4,6 +4,8 @@ import os
 import sys
 from datetime import datetime
 
+from dotenv import load_dotenv
+
 from .sqlalchemy_store import Checksum, Connection
 
 DEBUG = False  # Think _hard_ before enabling DEBUG

@@ -72,7 +72,9 @@ class Location(Model, SerializerMixin):
     filename: Mapped[str] = mapped_column(String())
     dirpath: Mapped[str] = mapped_column(String())
     modified: Mapped[float] = mapped_column(Float())
-    checksum_id: Mapped[int] = mapped_column(ForeignKey("checksum.id"), index=True)
+    checksum_id: Mapped[int] = mapped_column(
+        ForeignKey("checksum.id"), nullable=True, index=True
+    )
     checksum: Mapped[Checksum] = relationship("Checksum", back_populates="locations")
     seen: Mapped[bool] = mapped_column(Boolean())
     filesize: Mapped[int]
@@ -127,6 +129,7 @@ class Connection:
             Model.metadata.create_all(self.engine)
 
     def all_file_count(self, prefix):
+        # Refactoring candidate ...
         q = select(func.count(Location.id)).where(Location.dirpath.like(f"{prefix}%"))
         return self.session.scalar(q)
 
@@ -168,7 +171,7 @@ class Connection:
             new_file = open(file_path, "rb")
             hash = hashlib.file_digest(new_file, "sha256").hexdigest()
         except FileNotFoundError as e:
-            hash = f"##HASH: {e}"
+            return None
         cs = self.session.query(Checksum).filter_by(checksum=hash).first()
         if cs is None:
             cs = Checksum(checksum=hash)
