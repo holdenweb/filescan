@@ -40,6 +40,7 @@ def scan_directory(base_dir: str, conn: Connection):
         if not dirpath.endswith("/"):
             dirpath = f"{dirpath}/"
         for filename in filenames:
+            rtr = None
             file_count += 1
             current_file_path = os.path.join(dirpath, filename)
             stat = os.stat(current_file_path, follow_symlinks=False)
@@ -54,7 +55,7 @@ def scan_directory(base_dir: str, conn: Connection):
                     cs = conn.register_hash(current_file_path)
                     loc = conn.update_details(loc, disk_modified, cs, size)
                     debug("*UPDATED*", current_file_path)
-                    conn.archive_record("UPDATED", "location", loc)
+                    rtr = ("UPDATED", "location", loc)
                 else:
                     unchanged_files += 1
                     conn.update_seen(loc)
@@ -69,8 +70,10 @@ def scan_directory(base_dir: str, conn: Connection):
                     filesize=size,
                 )
                 debug("*CREATED*", current_file_path)
-                conn.archive_record("CREATED", "location", loc)
+                rtr = ("CREATED", "location", loc)
             conn.commit()
+            if rtr:
+                conn.archive_record(*rtr)
     ct = conn.all_file_count(base_dir)
     deleted_files = conn.unseen_location_count(base_dir)
     for loc in conn.unseen_locations(base_dir):
@@ -106,7 +109,7 @@ def main(
     args=sys.argv[1:],
     DEBUG=True,
     storage="sqlalchemy",
-    database="db1",
+    database="alembic",
     create=False,
 ):
     if len(sys.argv) == 1:

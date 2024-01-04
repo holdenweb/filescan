@@ -127,6 +127,9 @@ class Connection:
         if create:
             Model.metadata.drop_all(self.engine)
             Model.metadata.create_all(self.engine)
+            import alembic
+
+            alembic_cfg = alembic.Config("alembic.ini")
 
     def all_file_count(self, prefix):
         # Refactoring candidate ...
@@ -167,10 +170,18 @@ class Connection:
         return loc
 
     def register_hash(self, file_path):
+        """
+        Checksum file's content, creating a new Checksum row if necessary.
+
+        On the assumption that files needing scanning should be scanned once,
+        when the content is first logged. Identical files are identified by
+        equality of checksum value, implying that if the checksum already
+        exists then all necessary scanning has been performed.
+        """
         try:
             new_file = open(file_path, "rb")
             hash = hashlib.file_digest(new_file, "sha256").hexdigest()
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             return None
         cs = self.session.query(Checksum).filter_by(checksum=hash).first()
         if cs is None:
