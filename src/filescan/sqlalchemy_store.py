@@ -1,23 +1,17 @@
 import hashlib
 import keyword as kw
 import logging
+import os
 import sys
 import token
 from tokenize import tokenize
-
-root = logging.getLogger()
-root.setLevel(logging.DEBUG)
-
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-handler.setFormatter(formatter)
-root.addHandler(handler)
-
-
 from datetime import datetime
 
+from alembic import context
 from dotenv import load_dotenv
+
+load_dotenv()
+
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -42,7 +36,19 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy_serializer import SerializerMixin
 
-DB_URL_FMT = "postgresql+psycopg2://localhost:5432/{}"
+
+root = logging.getLogger()
+root.setLevel(logging.DEBUG)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+root.addHandler(handler)
+
+DB_URL = (
+    f"postgresql+psycopg2://localhost:5432/{os.environ.get('DBNAME', 'default_db')}"
+)
 
 
 class Model(DeclarativeBase):
@@ -60,7 +66,7 @@ class Model(DeclarativeBase):
 class Checksum(Model, SerializerMixin):
     __tablename__ = "checksum"
     id: Mapped[int] = mapped_column(primary_key=True)
-    checksum: Mapped[str] = mapped_column(String())
+    checksum: Mapped[str] = mapped_column(String(), index=True, unique=True)
     locations: Mapped[list["Location"]] = relationship(back_populates="checksum")
     tokens: Mapped[list["TokenPos"]] = relationship(back_populates="checksum")
     serialize_only = ("checksum",)
@@ -117,19 +123,10 @@ class Connection:
     class DoesNotExist(Exception):
         ...
 
-    def __init__(self, dbname="sa", create=False):
-        self.dbname = dbname
-        # if create:
-        #    self.create_db()
-        self.db_url = DB_URL_FMT.format(dbname)
+    def __init__(self):
+        self.db_url = DB_URL
         self.engine = create_engine(self.db_url, echo=False)
         self.session = sessionmaker(self.engine)()
-        if create:
-            Model.metadata.drop_all(self.engine)
-            Model.metadata.create_all(self.engine)
-            import alembic
-
-            alembic_cfg = alembic.Config("alembic.ini")
 
     def all_file_count(self, prefix):
         # Refactoring candidate ...
@@ -147,9 +144,6 @@ class Connection:
             .values(seen=False)
         )
         return self.session.execute(q)
-
-    def create_db(self):
-        raise NotImplementedError("Sorry, Dave, I'm afraid I can't do that.")
 
     def commit(self):
         return self.session.commit()

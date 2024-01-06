@@ -6,7 +6,9 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 
-from .sqlalchemy_store import Checksum, Connection
+load_dotenv()
+
+from .sqlalchemy_store import Checksum, Connection, DB_URL
 
 DEBUG = False  # Think _hard_ before enabling DEBUG
 
@@ -108,14 +110,13 @@ Total seen: {file_count:7,d}
 def main(
     args=sys.argv[1:],
     DEBUG=True,
-    storage="sqlalchemy",
-    database="alembic",
     create=False,
 ):
     if len(sys.argv) == 1:
         sys.exit("Nothing to do!")
-    conn = Connection(database, create=create)
+    conn = Connection()
 
+    print(f"Using database {DB_URL}")
     for base_dir in args:
         scan_directory(base_dir, conn)
 
