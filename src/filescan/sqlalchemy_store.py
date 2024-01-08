@@ -10,7 +10,7 @@ from datetime import datetime
 from alembic import context
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv()  #
 
 from sqlalchemy import (
     Boolean,
@@ -92,7 +92,8 @@ class TokenPos(Model, SerializerMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     checksum_id: Mapped[int] = mapped_column(ForeignKey("checksum.id"), index=True)
     checksum: Mapped[Checksum] = relationship("Checksum", back_populates="tokens")
-    name: Mapped[str] = mapped_column(String())
+    ttype: Mapped[int] = mapped_column(nullable=False, default=1)
+    name: Mapped[str]
     line: Mapped[int]
     pos: Mapped[int]
     serialize_rules = ("-checksum.tokens",)
@@ -185,9 +186,9 @@ class Connection:
         return cs
 
     def save_reference(
-        self, checksum: Checksum, name: str, line: int, pos: int
+        self, checksum: Checksum, ttype: int, name: str, line: int, pos: int
     ) -> TokenPos:
-        t = TokenPos(checksum=checksum, name=name, line=line, pos=pos)
+        t = TokenPos(checksum=checksum, ttype=ttype, name=name, line=line, pos=pos)
         self.session.add(t)
         return t
 
@@ -281,7 +282,9 @@ class Connection:
             try:
                 for t in tokenize(inf.readline):
                     if t.type == token.NAME and not kw.iskeyword(t.string):
-                        self.save_reference(checksum, t.string, t.start[0], t.start[1])
+                        self.save_reference(
+                            checksum, 1, t.string, t.start[0], t.start[1]
+                        )
             except Exception as e:
                 print(
                     f"** {filepath}: {type(e)}\n   {e}"
