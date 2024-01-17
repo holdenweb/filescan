@@ -12,6 +12,10 @@ from .sqlalchemy_store import Checksum, Connection, DB_URL
 
 DEBUG = False  # Think _hard_ before enabling DEBUG
 
+import importlib
+import pkgutil
+
+
 IGNORE_DIRS = {
     "__pycache__",
     "site-packages",
@@ -19,6 +23,15 @@ IGNORE_DIRS = {
     ".ipynb_checkpoints",
     ".mypy_cache",
 }
+
+discovered_plugins = {
+    name: importlib.import_module(name)
+    for finder, name, ispkg in pkgutil.iter_modules()
+    if name.startswith("filescan_")
+}
+if discovered_plugins:
+    print("Plugins:", ", ".join(name for name in discovered_plugins))
+discovered_plugins = list(discovered_plugins.values())
 
 
 def debug(*args, **kwargs):
@@ -42,7 +55,7 @@ def scan_directory(base_dir: str, conn: Connection):
         if not dirpath.endswith("/"):
             dirpath = f"{dirpath}/"
         for filename in filenames:
-            rtr = None
+            archive_data = None
             file_count += 1
             current_file_path = os.path.join(dirpath, filename)
             stat = os.stat(current_file_path, follow_symlinks=False)
@@ -56,8 +69,10 @@ def scan_directory(base_dir: str, conn: Connection):
                     updated_files += 1
                     cs = conn.register_hash(current_file_path)
                     loc = conn.update_details(loc, disk_modified, cs, size)
+                    for plugin in discovered_plugins:
+                        plugin.process(conn, loc)
                     debug("*UPDATED*", current_file_path)
-                    rtr = ("UPDATED", "location", loc)
+                    archive_data = ("UPDATED", "location", loc)
                 else:
                     unchanged_files += 1
                     conn.update_seen(loc)
@@ -71,11 +86,13 @@ def scan_directory(base_dir: str, conn: Connection):
                     checksum=cs,
                     filesize=size,
                 )
+                for plugin in discovered_plugins:
+                    plugin.process(conn, loc)
                 debug("*CREATED*", current_file_path)
-                rtr = ("CREATED", "location", loc)
+                archive_data = ("CREATED", "location", loc)
             conn.commit()
-            if rtr:
-                conn.archive_record(*rtr)
+            if archive_data:
+                conn.archive_record(*archive_data)
     ct = conn.all_file_count(base_dir)
     deleted_files = conn.unseen_location_count(base_dir)
     for loc in conn.unseen_locations(base_dir):

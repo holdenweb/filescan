@@ -1,10 +1,7 @@
 import hashlib
-import keyword as kw
 import logging
 import os
 import sys
-import token
-from tokenize import tokenize
 from datetime import datetime
 
 from alembic import context
@@ -168,10 +165,10 @@ class Connection:
         """
         Checksum file's content, creating a new Checksum row if necessary.
 
-        On the assumption that files needing scanning should be scanned once,
-        when the content is first logged. Identical files are identified by
-        equality of checksum value, implying that if the checksum already
-        exists then all necessary scanning has been performed.
+        File scanning was formerly performed here, but is now move to
+        plugins. Importble modules with names matching "filescan_* will"
+        be imported and their `process` function will be called with
+        the relevant Location object as the sole argument.
         """
         try:
             new_file = open(file_path, "rb")
@@ -182,7 +179,6 @@ class Connection:
         if cs is None:
             cs = Checksum(checksum=hash)
             self.session.add(cs)
-            self.scan_tokens(file_path, cs)
         return cs
 
     def save_reference(
@@ -264,28 +260,19 @@ class Connection:
         for r in self.session.scalars(q):
             self.session.delete(r)
 
-    def scan_tokens(self, filepath, checksum: Checksum):
-        """
-        Add the non-keyword tokens to the position index for this file.
-        Only called when no checksum previously existed for the file's
-        current incarnation - otherwise we assume scanning took place
-        when the original checksum was created.
-        XXX The above assumption fails when the first incarnation of a
-            Python source file doesn't have the ".py" extension. Hmmm.
-            Maybe one solution is an explicit test for the existence of
-            at least one TokenPos for a given checksum, but even this
-            would cause repeated parsing of files containing no names.
-        """
-        if not filepath.endswith(".py"):
-            return
-        with open(filepath, "rb") as inf:
-            try:
-                for t in tokenize(inf.readline):
-                    if t.type == token.NAME and not kw.iskeyword(t.string):
-                        self.save_reference(
-                            checksum, 1, t.string, t.start[0], t.start[1]
-                        )
-            except Exception as e:
-                print(
-                    f"** {filepath}: {type(e)}\n   {e}"
-                )  # XXX: sensible handling of parse and other errors
+
+#
+# RANDOM STUFF CREATED DURING DEVELOPMENT
+#
+def counted_symbols_from_filename_q(filename, *, dirpath):
+    q = (
+        select(TokenPos.name, func.count(TokenPos.name).label("ct"))
+        .join(Location.checksum)
+        .join(Checksum.tokens)
+        .where(Location.filename == filename, Location.dirpath == dirpath)
+        .group_by(TokenPos.name)
+    )
+    return q
+
+
+i = 0
