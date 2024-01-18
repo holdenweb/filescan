@@ -166,9 +166,10 @@ class Connection:
         Checksum file's content, creating a new Checksum row if necessary.
 
         File scanning was formerly performed here, but is now move to
-        plugins. Importble modules with names matching "filescan_* will"
+        plugins. Importable modules with names matching "filescan_* will"
         be imported and their `process` function will be called with
-        the relevant Location object as the sole argument.
+        the connection object as the first argument and the relevant
+        Location object as the second.
         """
         try:
             new_file = open(file_path, "rb")
