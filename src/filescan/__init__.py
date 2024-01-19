@@ -22,15 +22,22 @@ IGNORE_DIRS = {
     ".git",
     ".ipynb_checkpoints",
     ".mypy_cache",
+    ".idea"
 }
+
 
 discovered_plugins = {
     name: importlib.import_module(name)
     for finder, name, ispkg in pkgutil.iter_modules()
     if name.startswith("filescan_")
 }
+
+print(f"{discovered_plugins=}")
 if discovered_plugins:
     print("Plugins:", ", ".join(name for name in discovered_plugins))
+else:
+    print(" No plugin")
+
 discovered_plugins = list(discovered_plugins.values())
 
 
@@ -110,7 +117,6 @@ def scan_directory(base_dir: str, conn: Connection):
         deleted_files,
     )
     conn.commit()
-
     print(
         f"""\
 Known:      {known_files:7,d}
