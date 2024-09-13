@@ -75,13 +75,13 @@ class Location(Model, SerializerMixin):
     filename: Mapped[str] = mapped_column(String())
     dirpath: Mapped[str] = mapped_column(String())
     modified: Mapped[float] = mapped_column(Float())
+    seen: Mapped[bool] = mapped_column(Boolean())
+    filesize: Mapped[int]
+    serialize_rules = ("-checksum_id", "checksum.checksum")
     checksum_id: Mapped[int] = mapped_column(
         ForeignKey("checksum.id"), nullable=True, index=True
     )
     checksum: Mapped[Checksum] = relationship("Checksum", back_populates="locations")
-    seen: Mapped[bool] = mapped_column(Boolean())
-    filesize: Mapped[int]
-    serialize_rules = ("-checksum_id", "checksum.checksum")
 
 
 class TokenPos(Model, SerializerMixin):
@@ -121,9 +121,9 @@ class Connection:
     class DoesNotExist(Exception):
         ...
 
-    def __init__(self):
+    def __init__(self, create=False, echo=False):
         self.db_url = DB_URL
-        self.engine = create_engine(self.db_url, echo=False)
+        self.engine = create_engine(self.db_url, echo=echo)
         self.session = sessionmaker(self.engine)()
 
     def all_file_count(self, prefix):
