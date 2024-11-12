@@ -174,7 +174,7 @@ class Connection:
         try:
             new_file = open(file_path, "rb")
             hash = hashlib.file_digest(new_file, "sha256").hexdigest()
-        except FileNotFoundError:
+        except (FileNotFoundError, PermissionError):
             return None
         cs = self.session.query(Checksum).filter_by(checksum=hash).first()
         if cs is None:

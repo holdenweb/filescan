@@ -36,11 +36,11 @@ class Connection:
     def clear_seen_bits(self, prefix):
         self.document_class.objects(dirpath__startswith=prefix).update(seen=False)
 
-    def hash_for(self, checksum):
-        return len(FileRecord.objects(checksum=checksum)[:1]) == 1
+    def hash_for(self, hash):
+        return len(FileRecord.objects(checksum=hash)[:1]) == 1
 
-    def save_reference(self, checksum, name, line, pos):
-        TokenPos(checksum=checksum, name=name, line=line, pos=pos).save()
+    def save_reference(self, hash, name, line, pos):
+        TokenPos(checksum=hash, name=name, line=line, pos=pos).save()
 
     def location_for(self, dir_path, file_path):
         fieldnames = ["id", "modified", "checksum", "seen"]
@@ -49,20 +49,20 @@ class Connection:
         )
         return tuple(getattr(result, fld) for fld in fieldnames)
 
-    def update_details(self, id, modified, checksum, seen=True):
+    def update_details(self, id, modified, hash, seen=True):
         return self.document_class.objects(pk=id).update(
-            modified=modified, checksum=checksum, seen=seen
+            modified=modified, checksum=hash, seen=seen
         )
 
     def update_seen(self, id):
         self.document_class.objects(pk=id).update(seen=True)
 
-    def insert_location(self, file_path, dirpath, modified, checksum):
+    def insert_location(self, file_path, dirpath, modified, hash):
         rec = self.document_class(
             filename=file_path,
             dirpath=dirpath,
             modified=modified,
-            checksum=checksum,
+            checksum=hash,
             seen=True,
         )
         rec.save()

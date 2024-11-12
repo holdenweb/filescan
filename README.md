@@ -1,28 +1,33 @@
-## filescan: track files and python variable usage
+## filescan: track files and Python name usage
 
-We assume your account has sufficiant permissions to create,
+We assume your account has sufficient permissions to create,
 delete and modify the necessary database objects in the
 database you select.
 
-Under poetry control run
+filescan uses the [`python-dotenv`](https://pypi.org/project/python-dotenv/)
+module, meaning you can affect your program's environment by editing the
+value of `DBNAME` in the _.env_ file.
 
-    python filescan [path ...]
 
-You will be asked which database technology you want to use.
-Enter one of `postgresql`, `sqlite` or `mongo`.
+### Creating a database
 
-It then asks you for a database name. Your choice.
+At present the required database must exist before filescan
+runs, so you'll need to create it manually some other way.
 
-Finally it asks whether you want to create a new database.
-Unless the response is the three literal characters "yes"
-the program assumes you wish to use an existing database.
-A "yes" answer will require confirmation in the same way,
-since it will delete any existing database of the same name.
+Once created, to add the tables run the command
 
-The above is slightly misleading, as the present code is
-not capable of dropping and creating databases, so it should
-really talk about creating the tables, rather than the
-whole database. This should be fixed in short order.
+    poetry run alembic upgrade head
+
+### Runing the prograM
+
+Run the command
+
+    poetry run python -m filescan [path ...]
+
+Each of the arguments should be directory.
+By default the system uses a database called "default_db".
+You can change this by setting the DBNAME environment
+variable.
 
 The program then proceeds to scan the filestore starting
 from each of the paths given on the command line. Any
@@ -43,6 +48,5 @@ When filescan runs, it searches for a list of importable
 modules or packages with names matching "filescan_* will
 be imported and their `process` function will be called with
 the connection object as the first argument and the relevant
-Location object as the second.
-
-Each new or modified file processed
+Location object as the second for each new or modified file
+encountered.
