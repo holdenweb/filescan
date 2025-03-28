@@ -40,6 +40,11 @@ def debug(*args, **kwargs):
 
 
 def scan_directory(base_dir: str, conn: Connection):
+    """
+    Recursively traverses a directory, noting which files
+    are new since the last scan, which have been modified
+    and which have been deleted.
+    """
     started: datetime = datetime.now()
     file_count = known_files = updated_files = 0
     unchanged_files = new_files = deleted_files = 0
