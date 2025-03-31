@@ -18,21 +18,17 @@ from sqlalchemy.orm import sessionmaker
 PREFIX = "/Users/sholden/"
 
 
-@pytest.fixture(scope="function")
-def db():
-    yield Database(dbname="test", temporary=True)
-
-
 @pytest.fixture(scope="function")  # 'function' scope means for each test function
-def db_session(db):
+def db():
     """
-    A pytest fixture that provides a SQLAlchemy session, and rolls back
-    the session after the test completes.
+    A pytest fixture that provides a database with a SQLAlchemy session,
+    and rolls back the session after the test completes.
     """
+    db = Database(dbname="test", temporary=True)
     with db.session.begin():  # Start a transaction *on the connection*
         if not verify_empty(db.session):
             raise ValueError("Session was not empty before test")
-        yield db.session  # Provide the session to the test
+        yield db
         db.session.rollback()
     if not verify_empty(db.session):
         purge_db(db.session)
@@ -52,13 +48,13 @@ def purge_db(session):
         session.query(record_type).delete()
 
 
-def test_empty_session(db_session):
+def test_empty_session(db):
     pass  # We want the empty session test to pass!
 
 
-def test_structure(db, db_session):
+def test_structure(db):
     cs = db.register_hash("/dev/null")
-    db_session.add(
+    db.session.add(
         Location(
             filename="nosuch.py",
             dirpath="/Users/sholden/",
@@ -68,20 +64,20 @@ def test_structure(db, db_session):
             filesize=1024,
         )
     )
-    assert (loc := db_session.scalars(select(Location)).one())
+    assert (loc := db.session.scalars(select(Location)).one())
     assert isinstance(loc, Location)
-    db_session.delete(loc)
-    db_session.delete(cs)
+    db.session.delete(loc)
+    db.session.delete(cs)
     q = select(func.count(Location.id))
-    assert db_session.scalar(q) == 0
+    assert db.session.scalar(q) == 0
 
 
-def test_seen_bits(db, db_session):
+def test_seen_bits(db):
     q = select(func.count(Location.id))
-    assert db_session.scalar(q) == 0
+    assert db.session.scalar(q) == 0
     for i in range(20):
         cs = db.register_hash("/dev/null")
-        db_session.add(
+        db.session.add(
             Location(
                 filename=f"file{i:02d}.tst",
                 dirpath=PREFIX,
@@ -96,21 +92,21 @@ def test_seen_bits(db, db_session):
     q2 = q1.where(Location.seen == True)
     q3 = q1.where(Location.seen == False)
     for q, r in (q1, 20), (q2, 10), (q3, 10):
-        assert db_session.scalar(q) == r
+        assert db.session.scalar(q) == r
     db.delete_unseen_locations(PREFIX)
-    assert db_session.scalar(q1) == 10
+    assert db.session.scalar(q1) == 10
     assert db.unseen_location_count(PREFIX) == 0
     q = select(Location)
-    for loc in db_session.scalars(q):  # Should be passing the whole object here.
+    for loc in db.session.scalars(q):  # Should be passing the whole object here.
         db.update_seen(loc, False)
     assert db.unseen_location_count(PREFIX) == 10
 
 
-def test_archive(db, db_session):
-    with db_session.begin_nested() as nested:
+def test_archive(db):
+    with db.session.begin_nested() as nested:
         cs = db.register_hash("/dev/null")
-        db_session.add(cs)
-        assert db_session.scalar(func.count(Archive.id)) == 0
+        db.session.add(cs)
+        assert db.session.scalar(func.count(Archive.id)) == 0
         loc = Location(
             filename="test.txt",
             dirpath="/nosuch/directory/",
@@ -119,34 +115,34 @@ def test_archive(db, db_session):
             seen=True,
             filesize=1025,
         )
-        db_session.add(loc)
+        db.session.add(loc)
         db.archive_record("TESTING", "location", loc)
-    assert db_session.scalar(func.count(Archive.id)) == 1
+    assert db.session.scalar(func.count(Archive.id)) == 1
 
 
-def test_register_hash(db, db_session):
-    verify_empty(db_session)
-    with db_session.begin_nested():
+def test_register_hash(db):
+    verify_empty(db.session)
+    with db.session.begin_nested():
         # check creation adds a record
         cs = db.register_hash("/dev/null")
-        assert db_session.scalar(func.count(Checksum.id)) == 1
+        assert db.session.scalar(func.count(Checksum.id)) == 1
         assert isinstance(cs, Checksum)
         cs = db.register_hash("/dev/null")
-        assert db_session.scalar(func.count(Checksum.id)) == 1
+        assert db.session.scalar(func.count(Checksum.id)) == 1
         assert isinstance(cs, Checksum)
         with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
             fp.write(b"Hello world!")
             fp.close()
-            # the file is closed, but not removed
+            # the file is not removed within the context
             cs = db.register_hash(fp.name)
-            db_session.add(cs)
-    assert db_session.scalar(func.count(Checksum.id)) == 2
+            db.session.add(cs)
+    assert db.session.scalar(func.count(Checksum.id)) == 2
     assert isinstance(cs, Checksum)
 
 
-def test_location_serialization(db, db_session):
-    verify_empty(db_session)
-    with db_session.begin_nested():
+def test_location_serialization(db):
+    verify_empty(db.session)
+    with db.session.begin_nested():
         cs = db.register_hash("/dev/null")
         for name in ("one", "two", "three"):
             db.save_reference(checksum=cs, name=name, line=1, pos=1)
@@ -158,4 +154,6 @@ def test_location_serialization(db, db_session):
             filesize=999,
         )
         loc_dict = loc.to_dict()
-    assert list(loc_dict["checksum"].keys()) == ["checksum"]
+    assert list(loc_dict["checksum"].keys()) == [
+        "checksum"
+    ], "Incorrect assumption: database has a different session!"
