@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()  #
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     DateTime,
     Float,
@@ -32,6 +33,7 @@ from sqlalchemy.orm import (
     relationship,
     sessionmaker,
 )
+from sqlalchemy.types import BIGINT
 from sqlalchemy_serializer import SerializerMixin
 
 
@@ -75,7 +77,7 @@ class Location(Model, SerializerMixin):
     dirpath: Mapped[str] = mapped_column(String())
     modified: Mapped[float] = mapped_column(Float())
     seen: Mapped[bool] = mapped_column(Boolean())
-    filesize: Mapped[int]
+    filesize: Mapped[int] = mapped_column(BigInteger())
     serialize_rules = ("-checksum_id", "checksum.checksum")
     checksum_id: Mapped[int] = mapped_column(
         ForeignKey("checksum.id"), nullable=True, index=True

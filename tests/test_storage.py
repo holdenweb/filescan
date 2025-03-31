@@ -24,7 +24,7 @@ def db():
     A pytest fixture that provides a database with a SQLAlchemy session,
     and rolls back the session after the test completes.
     """
-    db = Database(dbname="test", temporary=True)
+    db = Database(dbname="test", temporary=True, echo=False)
     with db.session.begin():  # Start a transaction *on the connection*
         if not verify_empty(db.session):
             raise ValueError("Session was not empty before test")
@@ -121,39 +121,48 @@ def test_archive(db):
 
 
 def test_register_hash(db):
-    verify_empty(db.session)
-    with db.session.begin_nested():
-        # check creation adds a record
+    # check creation adds a record
+    with db.session.begin_nested() as nested:
         cs = db.register_hash("/dev/null")
-        assert db.session.scalar(func.count(Checksum.id)) == 1
-        assert isinstance(cs, Checksum)
-        cs = db.register_hash("/dev/null")
-        assert db.session.scalar(func.count(Checksum.id)) == 1
-        assert isinstance(cs, Checksum)
-        with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
-            fp.write(b"Hello world!")
-            fp.close()
-            # the file is not removed within the context
+    assert db.session.scalar(func.count(Checksum.id)) == 1
+    assert isinstance(cs, Checksum)
+    cs = db.register_hash("/dev/null")
+    assert db.session.scalar(func.count(Checksum.id)) == 1
+    assert isinstance(cs, Checksum)
+    with tempfile.NamedTemporaryFile(delete_on_close=False) as fp:
+        fp.write(b"Hello world!")
+        fp.close()
+        # the file is not removed within the context
+        with db.session.begin_nested() as nested:
             cs = db.register_hash(fp.name)
-            db.session.add(cs)
     assert db.session.scalar(func.count(Checksum.id)) == 2
     assert isinstance(cs, Checksum)
 
 
 def test_location_serialization(db):
-    verify_empty(db.session)
+    cs = db.register_hash("/dev/null")
+    for name in ("one", "two", "three"):
+        db.save_reference(checksum=cs, name=name, line=1, pos=1)
+    loc = db.insert_location(
+        dirpath="/somwhere/over/the/rainbow",
+        filename="far_away.txt",
+        modified=1023.25,
+        checksum=cs,
+        filesize=999,
+    )
+    loc_dict = loc.to_dict()
+    assert list(loc_dict["checksum"].keys()) == ["checksum"]
+
+
+def test_large_filesize(db):
     with db.session.begin_nested():
         cs = db.register_hash("/dev/null")
-        for name in ("one", "two", "three"):
-            db.save_reference(checksum=cs, name=name, line=1, pos=1)
         loc = db.insert_location(
             dirpath="/somwhere/over/the/rainbow",
             filename="far_away.txt",
             modified=1023.25,
             checksum=cs,
-            filesize=999,
+            filesize=3515506688,
         )
-        loc_dict = loc.to_dict()
-    assert list(loc_dict["checksum"].keys()) == [
-        "checksum"
-    ], "Incorrect assumption: database has a different session!"
+        db.session.add(loc)
+    assert True
