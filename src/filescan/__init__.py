@@ -8,13 +8,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from .sqlalchemy_store import Checksum, Connection, DB_URL
+from .sqlalchemy_store import Checksum, Database
 
 DEBUG = False  # Think _hard_ before enabling DEBUG
 
 import importlib
 import pkgutil
 
+DB_NAME = "alembic"
 
 IGNORE_DIRS = {
     "__pycache__",
@@ -39,7 +40,7 @@ def debug(*args, **kwargs):
         print(*args, **kwargs)
 
 
-def scan_directory(base_dir: str, conn: Connection):
+def scan_directory(base_dir: str, conn: Database):
     """
     Recursively traverses a directory, noting which files
     are new since the last scan, which have been modified
@@ -136,9 +137,9 @@ def main(
 ):
     if len(sys.argv) == 1:
         sys.exit("Nothing to do!")
-    conn = Connection()
+    conn = Database(dbname=DB_NAME)
 
-    print(f"Using database {DB_URL}")
+    print(f"Using production database {DB_NAME}")
     for base_dir in args:
         scan_directory(base_dir, conn)
 

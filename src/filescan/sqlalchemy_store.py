@@ -21,6 +21,7 @@ from sqlalchemy import (
     func,
     select,
     update,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import ArgumentError, NoResultFound
@@ -43,9 +44,7 @@ formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 root.addHandler(handler)
 
-DB_URL = (
-    f"postgresql+psycopg2://localhost:5432/{os.environ.get('DBNAME', 'default_db')}"
-)
+DB_URL_FORMAT = "postgresql+psycopg2://localhost:5432/{dbname}".format
 
 
 class Model(DeclarativeBase):
@@ -117,14 +116,63 @@ class Archive(Model):
     data: Mapped[dict] = mapped_column(JSONB())
 
 
-class Connection:
+class Database:
     class DoesNotExist(Exception):
         ...
 
-    def __init__(self, create=False, echo=False):
-        self.db_url = DB_URL
-        self.engine = create_engine(self.db_url, echo=echo)
-        self.session = sessionmaker(self.engine)()
+    def __init__(self, dbname=None, temporary=False, echo=False):
+        self.dbname = dbname if dbname is not None else os.environ.get("DBNAME", "test")
+        self.db_url = DB_URL_FORMAT(dbname=self.dbname)
+        exists = self._database_exists(self.dbname)
+        if temporary and not exists:
+            self._create_database(self.dbname)  # Call the database creation method
+        elif exists and not temporary:
+            raise ValueError(f"Cannot access non-existent database {self.dbname!r}")
+        # Reaching this point indicates that a suitable database exists
+        self.engine = create_engine(
+            self.db_url, echo=echo
+        )  # Is autocommit necessary? Probably not
+        self.session = sessionmaker(bind=self.engine)()
+
+    def _create_database(self, dbname: str):
+        """
+        Creates a new PostgreSQL database with the given name.
+        """
+        temp_engine = create_engine(
+            "postgresql+psycopg2://localhost:5432/postgres",
+            echo=True,
+            isolation_level="AUTOCOMMIT",
+        )  # Isolation level allows DDL
+
+        with temp_engine.connect() as conn:
+            conn.execute(text(f"CREATE DATABASE {dbname}"))
+        temp_engine.dispose()
+
+        engine = create_engine(
+            self.db_url, echo=False
+        )  # Create an engine to the new database
+        Model.metadata.create_all(engine)  # Create the tables
+        engine.dispose()
+
+    def _database_exists(self, dbname: str) -> bool:
+        """
+        Checks if a PostgreSQL database with the given name exists.
+
+        Args:
+            dbname: The name of the database to check.
+
+        Returns:
+            True if the database exists, False otherwise.
+        """
+        temp_engine = create_engine(
+            "postgresql+psycopg2://localhost:5432/postgres", echo=False
+        )  # Connect to the server, not a specific DB
+        with temp_engine.connect() as conn:
+            result = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :dbname"),
+                {"dbname": dbname},
+            )
+            return result.scalar() is not None
 
     def all_file_count(self, prefix):
         # Refactoring candidate ...
@@ -183,7 +231,7 @@ class Connection:
         return cs
 
     def save_reference(
-        self, checksum: Checksum, ttype: int, name: str, line: int, pos: int
+        self, checksum: Checksum, name: str, line: int, pos: int, ttype: int = 1
     ) -> TokenPos:
         t = TokenPos(checksum=checksum, ttype=ttype, name=name, line=line, pos=pos)
         self.session.add(t)

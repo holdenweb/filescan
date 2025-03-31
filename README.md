@@ -45,7 +45,8 @@ Processing specific file types with plugins
 -------------------------------------------
 
 When filescan runs, it searches for a list of importable
-modules or packages with names matching "filescan_* will
+modules or packages with names matching "filescan_*.
+All such modules will
 be imported and their `process` function will be called with
 the connection object as the first argument and the relevant
 Location object as the second for each new or modified file
