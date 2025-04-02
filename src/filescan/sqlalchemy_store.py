@@ -46,7 +46,7 @@ formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(messag
 handler.setFormatter(formatter)
 root.addHandler(handler)
 
-DB_URL_FORMAT = "postgresql+psycopg2://localhost:5432/{dbname}".format
+DB_URL_FORMAT = "postgresql+psycopg://localhost:5432/{dbname}".format
 
 
 class Model(DeclarativeBase):
@@ -141,7 +141,7 @@ class Database:
         Creates a new PostgreSQL database with the given name.
         """
         temp_engine = create_engine(
-            "postgresql+psycopg2://localhost:5432/postgres",
+            "postgresql+psycopg://localhost:5432/postgres",
             echo=True,
             isolation_level="AUTOCOMMIT",
         )  # Isolation level allows DDL
@@ -167,7 +167,7 @@ class Database:
             True if the database exists, False otherwise.
         """
         temp_engine = create_engine(
-            "postgresql+psycopg2://localhost:5432/postgres", echo=False
+            "postgresql+psycopg://localhost:5432/postgres", echo=False
         )  # Connect to the server, not a specific DB
         with temp_engine.connect() as conn:
             result = conn.execute(
