@@ -126,14 +126,13 @@ class Database:
         self.dbname = dbname if dbname is not None else os.environ.get("DBNAME", "test")
         self.db_url = DB_URL_FORMAT(dbname=self.dbname)
         exists = self._database_exists(self.dbname)
-        if temporary and not exists:
-            self._create_database(self.dbname)  # Call the database creation method
-        elif exists and not temporary:
+        if temporary:
+            if not exists:
+                self._create_database(self.dbname)  # Call the database creation method
+        elif not exists:
             raise ValueError(f"Cannot access non-existent database {self.dbname!r}")
         # Reaching this point indicates that a suitable database exists
-        self.engine = create_engine(
-            self.db_url, echo=echo
-        )  # Is autocommit necessary? Probably not
+        self.engine = create_engine(self.db_url, echo=echo)
         self.session = sessionmaker(bind=self.engine)()
 
     def _create_database(self, dbname: str):
@@ -235,6 +234,7 @@ class Database:
     def save_reference(
         self, checksum: Checksum, name: str, line: int, pos: int, ttype: int = 1
     ) -> TokenPos:
+
         t = TokenPos(checksum=checksum, ttype=ttype, name=name, line=line, pos=pos)
         self.session.add(t)
         return t

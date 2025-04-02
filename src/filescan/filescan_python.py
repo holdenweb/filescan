@@ -25,7 +25,7 @@ def process(conn, loc):
                 for t in tokenize(inf.readline):
                     if t.type == token.NAME and not kw.iskeyword(t.string):
                         conn.save_reference(
-                            loc.checksum, 1, t.string, t.start[0], t.start[1]
+                            loc.checksum, t.string, t.start[0], t.start[1]
                         )
             except Exception as e:
                 print(
