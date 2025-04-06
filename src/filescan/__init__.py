@@ -15,7 +15,7 @@ DEBUG = False  # Think _hard_ before enabling DEBUG
 import importlib
 import pkgutil
 
-DB_NAME = "test"
+DB_NAME = "alembic"
 
 IGNORE_DIRS = {
     "__pycache__",
