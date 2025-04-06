@@ -15,7 +15,7 @@ DEBUG = False  # Think _hard_ before enabling DEBUG
 import importlib
 import pkgutil
 
-DB_NAME = "alembic"
+DB_NAME = "test"
 
 IGNORE_DIRS = {
     "__pycache__",
@@ -40,7 +40,7 @@ def debug(*args, **kwargs):
         print(*args, **kwargs)
 
 
-def scan_directory(base_dir: str, conn: Database):
+def scan_directory(base_dir: str, db: Database):
     """
     Recursively traverses a directory, noting which files
     are new since the last scan, which have been modified
@@ -52,7 +52,9 @@ def scan_directory(base_dir: str, conn: Database):
     base_dir = os.path.abspath(base_dir)
     if not base_dir.endswith("/"):
         base_dir += "/"
-    conn.clear_seen_bits(base_dir)
+    db.clear_seen_bits(base_dir)
+    runlog = db.start_run(base_dir)
+    db.session.flush()
 
     for dirpath, dirnames, filenames in os.walk(base_dir):
         for ignore_dir in IGNORE_DIRS:
@@ -68,24 +70,26 @@ def scan_directory(base_dir: str, conn: Database):
             disk_modified = stat.st_mtime
             size = stat.st_size
             try:  # Known file happy path
-                loc = conn.location_for(dirpath, filename)
+                loc = db.location_for(dirpath, filename)
                 id, checksum, seen = loc.id, loc.checksum, loc.seen
                 known_files += 1
                 if disk_modified != loc.modified:  # Changed since last scan
                     updated_files += 1
-                    cs = conn.register_hash(current_file_path)
-                    loc = conn.update_details(loc, disk_modified, cs, size)
+                    cs = db.register_hash(current_file_path)
+                    loc = db.update_details(loc, disk_modified, cs, size)
                     for plugin in discovered_plugins:
-                        plugin.process(conn, loc)
+                        plugin.process(db, loc)
                     debug("*UPDATED*", current_file_path)
-                    archive_data = ("UPDATED", "location", loc)
+                    archive_data = dict(
+                        reason="UPDATED", rectype="location", record=loc, run=runlog
+                    )
                 else:
                     unchanged_files += 1
-                    conn.update_seen(loc)
-            except conn.DoesNotExist:  # New file
+                    db.update_seen(loc)
+            except db.DoesNotExist:  # New file
                 new_files += 1
-                cs = conn.register_hash(current_file_path)
-                loc = conn.insert_location(
+                cs = db.register_hash(current_file_path)
+                loc = db.insert_location(
                     dirpath=dirpath,
                     filename=filename,
                     modified=disk_modified,
@@ -93,19 +97,26 @@ def scan_directory(base_dir: str, conn: Database):
                     filesize=size,
                 )
                 for plugin in discovered_plugins:
-                    plugin.process(conn, loc)
+                    plugin.process(db, loc)
                 debug("*CREATED*", current_file_path)
-                archive_data = ("CREATED", "location", loc)
-            conn.commit()
+                archive_data = dict(
+                    reason="created", rectype="location", record=loc, runlog=runlog
+                )
+            db.session.flush()
             if archive_data:
-                conn.archive_record(*archive_data)
-    ct = conn.all_file_count(base_dir)
-    deleted_files = conn.unseen_location_count(base_dir)
-    for loc in conn.unseen_locations(base_dir):
+                db.archive_record(**archive_data)
+    ct = db.all_file_count(base_dir)
+
+    deleted_files = db.unseen_location_count(base_dir)
+    for loc in db.unseen_locations(base_dir):
         debug(f"*DELETED* {loc.dirpath}{loc.filename}")
-        conn.archive_record("DELETED", "location", loc)
-    conn.delete_unseen_locations(base_dir)
-    conn.record_run(
+        archive_data = dict(
+            reason="DELETED", rectype="location", record=loc, runlog=runlog
+        )
+
+    db.delete_unseen_locations(base_dir)
+    db.end_run(
+        runlog,
         started,
         base_dir,
         file_count,
@@ -115,7 +126,6 @@ def scan_directory(base_dir: str, conn: Database):
         new_files,
         deleted_files,
     )
-    conn.commit()
 
     print(
         f"""\
@@ -137,11 +147,12 @@ def main(
 ):
     if len(sys.argv) == 1:
         sys.exit("Nothing to do!")
-    conn = Database(dbname=DB_NAME)
+    db = Database(dbname=DB_NAME)
 
     print(f"Using production database {DB_NAME}")
-    for base_dir in args:
-        scan_directory(base_dir, conn)
+    with db.session.begin():
+        for base_dir in args:
+            scan_directory(base_dir, db)
 
 
 if __name__ == "__main__":

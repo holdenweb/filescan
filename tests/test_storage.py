@@ -2,6 +2,8 @@
 
 import tempfile
 
+from datetime import datetime
+
 import pytest
 
 from sqlalchemy_store import (
@@ -39,7 +41,7 @@ def db():
 def verify_empty(session):
     return all(
         session.scalar(func.count(record_type.id)) == 0
-        for record_type in (Location, TokenPos, RunLog, Archive)
+        for record_type in (Checksum, Location, TokenPos, RunLog, Archive)
     )
 
 
@@ -102,8 +104,18 @@ def test_seen_bits(db):
     assert db.unseen_location_count(PREFIX) == 10
 
 
-def test_archive(db):
+def test_archive_references_runlog(db):
     with db.session.begin_nested() as nested:
+        runlog = RunLog(
+            when_run=datetime.now(),
+            rootdir="/no/such/directory/",
+            files=0,
+            known=0,
+            updated=0,
+            unchanged=0,
+            new_files=0,
+            deleted=0,
+        )
         cs = db.register_hash("/dev/null")
         db.session.add(cs)
         assert db.session.scalar(func.count(Archive.id)) == 0
@@ -116,8 +128,14 @@ def test_archive(db):
             filesize=1025,
         )
         db.session.add(loc)
-        db.archive_record("TESTING", "location", loc)
+        db.session.flush()
+        db.archive_record(
+            reason="TESTING", rectype="location", record=loc, runlog=runlog
+        )
     assert db.session.scalar(func.count(Archive.id)) == 1
+    archives = db.session.execute(select(Archive))
+    archive = next(archives)[0]  # Still looking for explanation of tuples
+    assert archive.runlog is runlog
 
 
 def test_register_hash(db):

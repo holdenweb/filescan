@@ -4,6 +4,7 @@ import os
 import sys
 from datetime import datetime
 
+
 from alembic import context
 from dotenv import load_dotenv
 
@@ -101,6 +102,7 @@ class RunLog(Model, SerializerMixin):
     __tablename__ = "runlog"
     id: Mapped[int] = mapped_column(primary_key=True)
     when_run: Mapped[datetime] = mapped_column(DateTime)
+    when_finished: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     rootdir: Mapped[str]
     files: Mapped[int]
     known: Mapped[int]
@@ -108,6 +110,7 @@ class RunLog(Model, SerializerMixin):
     unchanged: Mapped[int]
     new_files: Mapped[int]
     deleted: Mapped[int]
+    archives: Mapped[list["Archive"]] = relationship("Archive", back_populates="runlog")
 
 
 class Archive(Model):
@@ -116,6 +119,10 @@ class Archive(Model):
     reason: Mapped[str] = mapped_column(String())
     rectype: Mapped[str] = mapped_column(String())
     data: Mapped[dict] = mapped_column(JSONB())
+    runlog_id: Mapped[int] = mapped_column(
+        ForeignKey("runlog.id"), nullable=True, index=True
+    )
+    runlog: Mapped[RunLog] = relationship("RunLog", back_populates="archives")
 
 
 class Database:
@@ -180,8 +187,11 @@ class Database:
         q = select(func.count(Location.id)).where(Location.dirpath.like(f"{prefix}%"))
         return self.session.scalar(q)
 
-    def archive_record(self, reason, rectype, record):
-        archive = Archive(reason=reason, rectype=rectype, data=record.to_dict())
+    def archive_record(self, reason, rectype, record, runlog):
+        self.session.flush()  # Ensure the RunLog record has an id!
+        archive = Archive(
+            reason=reason, rectype=rectype, data=record.to_dict(), runlog=runlog
+        )
         self.session.add(archive)
 
     def clear_seen_bits(self, prefix):
@@ -249,8 +259,24 @@ class Database:
         except NoResultFound:
             raise self.DoesNotExist(f"{dirpath}{filename}")
 
-    def record_run(
+    def start_run(self, rootdir) -> int:
+        runlog = RunLog(
+            when_run=datetime.now(),
+            rootdir=rootdir,
+            files=0,
+            known=0,
+            updated=0,
+            unchanged=0,
+            new_files=0,
+            deleted=0,
+        )
+        self.session.add(runlog)
+        self.session.flush()
+        return runlog
+
+    def end_run(
         self,
+        run: RunLog,
         when: datetime,
         rootdir: str,
         files: int,
@@ -260,16 +286,14 @@ class Database:
         new_files: int,
         deleted: int,
     ):
-        run = RunLog(
-            when_run=when,
-            rootdir=rootdir,
-            files=files,
-            known=known,
-            updated=updated,
-            unchanged=unchanged,
-            new_files=new_files,
-            deleted=deleted,
-        )
+        run.when_finished = when
+        run.rootdir = rootdir
+        run.files = files
+        run.known = known
+        run.updated = updated
+        run.unchanged = unchanged
+        run.new_files = new_files
+        run.deleted = deleted
         self.session.add(run)
 
     def update_details(
