@@ -81,7 +81,7 @@ def scan_directory(base_dir: str, db: Database):
                         plugin.process(db, loc)
                     debug("*UPDATED*", current_file_path)
                     archive_data = dict(
-                        reason="UPDATED", rectype="location", record=loc, run=runlog
+                        reason="UPDATED", rectype="location", record=loc, runlog=runlog
                     )
                 else:
                     unchanged_files += 1
