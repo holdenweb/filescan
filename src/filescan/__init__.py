@@ -100,7 +100,7 @@ def scan_directory(base_dir: str, db: Database):
                     plugin.process(db, loc)
                 debug("*CREATED*", current_file_path)
                 archive_data = dict(
-                    reason="created", rectype="location", record=loc, runlog=runlog
+                    reason="CREATED", rectype="location", record=loc, runlog=runlog
                 )
             db.session.flush()
             if archive_data:
@@ -117,8 +117,6 @@ def scan_directory(base_dir: str, db: Database):
     db.delete_unseen_locations(base_dir)
     db.end_run(
         runlog,
-        started,
-        base_dir,
         file_count,
         known_files,
         updated_files,

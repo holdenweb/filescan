@@ -133,8 +133,8 @@ def test_archive_references_runlog(db):
             reason="TESTING", rectype="location", record=loc, runlog=runlog
         )
     assert db.session.scalar(func.count(Archive.id)) == 1
-    archives = db.session.execute(select(Archive))
-    archive = next(archives)[0]  # Still looking for explanation of tuples
+    archives = db.session.execute(select(Archive)).scalars()
+    archive = next(archives)
     assert archive.runlog is runlog
 
 

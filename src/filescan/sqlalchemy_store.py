@@ -277,8 +277,6 @@ class Database:
     def end_run(
         self,
         run: RunLog,
-        when: datetime,
-        rootdir: str,
         files: int,
         known: int,
         updated: int,
@@ -286,14 +284,13 @@ class Database:
         new_files: int,
         deleted: int,
     ):
-        run.when_finished = when
-        run.rootdir = rootdir
         run.files = files
         run.known = known
         run.updated = updated
         run.unchanged = unchanged
         run.new_files = new_files
         run.deleted = deleted
+        run.when_finished = datetime.now()
         self.session.add(run)
 
     def update_details(
