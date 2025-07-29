@@ -156,6 +156,7 @@ dependencies = [
     { name = "psycopg" },
     { name = "python-dotenv" },
     { name = "sqlalchemy" },
+    { name = "sqlalchemy-serializer" },
 ]
 
 [package.dev-dependencies]
@@ -163,7 +164,6 @@ dev = [
     { name = "black" },
     { name = "mongoengine-stubs" },
     { name = "mypy" },
-    { name = "sqlalchemy-serializer" },
     { name = "types-psycopg2" },
 ]
 test = [
@@ -177,6 +177,7 @@ requires-dist = [
     { name = "psycopg", specifier = ">=3.2.6" },
     { name = "python-dotenv", specifier = ">=1.0.0,<2" },
     { name = "sqlalchemy", specifier = ">=2.0.23,<3" },
+    { name = "sqlalchemy-serializer", specifier = ">=1.4.1,<2" },
 ]
 
 [package.metadata.requires-dev]
@@ -184,7 +185,6 @@ dev = [
     { name = "black", specifier = ">=23.12.0,<24" },
     { name = "mongoengine-stubs", specifier = ">=0.24.0,<0.25" },
     { name = "mypy", specifier = ">=1.7.1,<2" },
-    { name = "sqlalchemy-serializer", specifier = ">=1.4.1,<2" },
     { name = "types-psycopg2", specifier = ">=2.9.21.20,<3" },
 ]
 test = [{ name = "pytest", specifier = ">=7.4.3,<8" }]
