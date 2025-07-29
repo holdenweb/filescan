@@ -3,7 +3,7 @@ name = "filescan"
 version = "0.0.1"
 description = "A tool for tracking files and Python source"
 authors = [{ name = "Steve Holden", email = "steve@holdenweb.com" }]
-requires-python = "~=3.11"
+requires-python = ">=3.12"
 readme = "README.md"
 license = "MIT"
 dependencies = [
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-scanfs = "filescan:main"
+filescan = "filescan:main"
 
 [dependency-groups]
 dev = [
