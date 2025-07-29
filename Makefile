@@ -10,3 +10,6 @@ project-scan:
 
 etc-scan:
 	$(run) python -m filescan /etc
+
+clean:
+	find . -name __pycache__ -exec rm -rf {} \; -prune
