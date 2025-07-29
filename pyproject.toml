@@ -1,47 +1,34 @@
 [project]
 name = "filescan"
-version = "0.0.1"
+version = "0.1.0"
 description = "A tool for tracking files and Python source"
-authors = [{ name = "Steve Holden", email = "steve@holdenweb.com" }]
 requires-python = ">=3.12"
 readme = "README.md"
 license = "MIT"
-dependencies = [
-    "mongoengine>=0.27.0,<0.28",
-    "sqlalchemy>=2.0.23,<3",
-    "python-dotenv>=1.0.0,<2",
-    "psycopg>=3.2.6",
-]
+dependencies = [ "mongoengine>=0.27.0,<0.28", "sqlalchemy>=2.0.23,<3", "python-dotenv>=1.0.0,<2", "psycopg>=3.2.6",]
+[[project.authors]]
+name = "Steve Holden"
+email = "steve@holdenweb.com"
+
+[dependency-groups]
+dev = [ "black>=23.12.0,<24", "mypy>=1.7.1,<2", "types-psycopg2>=2.9.21.20,<3", "mongoengine-stubs>=0.24.0,<0.25", "sqlalchemy-serializer>=1.4.1,<2", "alembic>=1.13.1,<2",]
+test = [ "pytest>=7.4.3,<8",]
+
+[build-system]
+requires = [ "hatchling",]
+build-backend = "hatchling.build"
 
 [project.scripts]
 filescan = "filescan:main"
 
-[dependency-groups]
-dev = [
-    "black>=23.12.0,<24",
-    "mypy>=1.7.1,<2",
-    "types-psycopg2>=2.9.21.20,<3",
-    "mongoengine-stubs>=0.24.0,<0.25",
-    "sqlalchemy-serializer>=1.4.1,<2",
-    "alembic>=1.13.1,<2",
-]
-test = ["pytest>=7.4.3,<8"]
-
 [tool.uv]
-default-groups = [
-    "dev",
-    "test",
-]
+default-groups = [ "dev", "test",]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/filescan"]
+include = [ "src/filescan",]
 
 [tool.hatch.build.targets.wheel]
-include = ["src/filescan"]
+include = [ "src/filescan",]
 
 [tool.hatch.build.targets.wheel.sources]
 "src/filescan" = "filescan"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
