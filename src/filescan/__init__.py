@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from .sqlalchemy_store import Checksum, Database
+from filescan.sqlalchemy_store import Checksum, Database
 
 DEBUG = False  # Think _hard_ before enabling DEBUG
 
